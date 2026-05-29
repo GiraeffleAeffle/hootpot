@@ -60,6 +60,15 @@ Notes:
 There does not appear to be an official Circles merchant registry today. Hootpot therefore ships a small project-owned merchant registry pattern for the hackathon. Merchant addresses are preconfigured before checkout; shoppers never paste recipient addresses.
 ```
 
+If the form requires deployed contract addresses:
+
+```text
+No deployed contract address yet. Contract source is included and compiles with Foundry:
+- contracts/HootpotMerchantRegistry.sol
+- contracts/HootpotReceiptRegistry.sol
+- contracts/HootpotPrizePool.sol
+```
+
 ## 03 Proof
 
 Live app:
@@ -72,6 +81,18 @@ Circles playground:
 
 ```text
 https://circles.gnosis.io/playground?url=https://hootpot.vercel.app
+```
+
+Repo:
+
+```text
+optional / not published yet
+```
+
+Notes:
+
+```text
+Open the live link directly or through the Circles playground. Current public build shows the full Hootpot flow and contract architecture, but checkout is guarded until a real merchant recipient and Hootpot pot address are configured. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
 ```
 
 Demo limitation:
