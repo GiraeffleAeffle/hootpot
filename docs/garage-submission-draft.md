@@ -43,7 +43,7 @@ Hootpot turns a CRC merchant payment into an eligible receipt for a community-fu
 Contract status:
 
 ```text
-Prototype contracts included, not yet deployed.
+Prototype contracts deployed on Gnosis Chain.
 ```
 
 Contracts:
@@ -60,13 +60,20 @@ Notes:
 There does not appear to be an official Circles merchant registry today. Hootpot therefore ships a small project-owned merchant registry pattern for the hackathon. Merchant addresses are preconfigured before checkout; shoppers never paste recipient addresses.
 ```
 
-If the form requires deployed contract addresses:
+Deployed contract addresses:
 
 ```text
-No deployed contract address yet. Contract source is included and tested with Foundry:
-- contracts/HootpotMerchantRegistry.sol
-- contracts/HootpotReceiptRegistry.sol
-- contracts/HootpotPrizePool.sol
+HootpotMerchantRegistry: 0x0FdAAb2F122493c08260042d6109E38AF101C189
+HootpotReceiptRegistry: 0xDf977829358499a735D9e05C4A32b1C1C5e64Ae8
+HootpotPrizePool: 0x0e0cd3B2f2e48B31c813a64814E35215634c5290
+
+Deployment block: 46439728 on Gnosis Chain
+Owner: 0x98f44DA4653D92F44f2b7cd328f37D2c199E077A
+
+GnosisScan:
+https://gnosisscan.io/address/0x0FdAAb2F122493c08260042d6109E38AF101C189
+https://gnosisscan.io/address/0xDf977829358499a735D9e05C4A32b1C1C5e64Ae8
+https://gnosisscan.io/address/0x0e0cd3B2f2e48B31c813a64814E35215634c5290
 
 Tests:
 forge test
