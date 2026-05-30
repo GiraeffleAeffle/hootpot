@@ -183,13 +183,28 @@ The safest demo flow is:
 
 Gnosis Pay can be added later as another receipt source through an official API or webhook. Raw card settlement transactions alone are not enough for a clean merchant-level Hootpot receipt, so the current app labels that path as a future extension.
 
+## Current Limitations
+
+Hootpot is a hackathon prototype, not a live merchant product yet. The deployed app and contracts prove the receipt/cashback mechanism, but ordinary users cannot use it meaningfully until real merchant and payout infrastructure exists.
+
+Missing pieces:
+
+- Real Circles merchant onboarding or an official merchant directory / payout address registry.
+- A Hootpot Circles group/org/Safe that can receive and distribute CRC.
+- Durable storage instead of the current prototype serverless ledger.
+- A continuous Circles event watcher instead of only verifying submitted tx hashes.
+- Production randomness, such as Chainlink VRF where supported or a stricter commit/reveal flow.
+- A Gnosis Pay API/webhook integration if card transactions should become eligible receipts.
+
+The Gnosis Pay path is a future integration. Raw card settlement transactions alone do not expose clean merchant-level receipt context, so Hootpot would need official card transaction metadata or webhooks to make card purchases eligible.
+
 See `docs/hootpot-contract-plan.md` for the safety model and upgrade path.
 
 ## Next Production Slice
 
+- Configure a real merchant recipient and Hootpot pot address for a complete live Circles checkout demo.
 - Replace `/tmp` prototype storage with durable storage.
 - Watch `CrcV2_TransferData` events continuously instead of only verifying submitted hashes.
 - Verify receipt amount from decoded event logs, not just the transfer reference.
 - Freeze ticket lists per round and publish draw proof.
-- Deploy the merchant registry, prize pool, and receipt registry.
 - Pay cashback recipients from the Hootpot org/Safe.

@@ -117,6 +117,21 @@ Demo limitation:
 The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS.
 ```
 
+Limitations / what is missing:
+
+```text
+Hootpot is not yet usable by ordinary people as a live merchant product. The prototype proves the receipt/cashback mechanism, but it still needs real merchant onboarding and platform integrations:
+
+- a real Circles merchant or shop directory, or an official way to discover approved merchant payout addresses
+- a Hootpot Circles group/org/Safe that can receive and distribute CRC
+- a durable backend store instead of prototype serverless storage
+- an on-chain/event watcher for Circles transfer data instead of only submitted tx hashes
+- production randomness, ideally Chainlink VRF where supported or a stronger commit/reveal flow
+- a Gnosis Pay API/webhook integration if card transactions should become eligible receipts
+
+The current Gnosis Pay angle is intentionally framed as a future integration. Raw card settlement transactions do not expose clean merchant-level receipt context for Hootpot, so a real product would need official Gnosis Pay transaction/merchant metadata or webhooks.
+```
+
 Demo script:
 
 ```text
@@ -142,4 +157,23 @@ Future extension:
 
 ```text
 The same receipt model can later ingest Gnosis Pay card receipts through an official API or webhook. For the hackathon, Hootpot focuses on real Circles checkout receipts because raw card settlement transactions do not expose clean merchant-level receipt context.
+```
+
+Public post:
+
+```text
+I built Hootpot for the Circles Garage hackathon: a miniapp that turns a CRC merchant payment into a receipt for a community cashback pool.
+
+The demo has a deployed miniapp, Gnosis Chain contracts, and a tested receipt/draw flow. It is still not a ready consumer product: there is no official Circles merchant registry wired in, no real merchant network, and no Gnosis Pay card receipt API/webhook integration yet. For now merchants have to be preconfigured by address.
+
+What I would need to make this useful in the real world:
+- official merchant metadata / payout address discovery for Circles shops
+- a Gnosis Pay API or webhook that exposes card transaction and merchant receipt data
+- a Hootpot Circles group/org/Safe for the pool
+- durable storage and an event watcher for verified receipt indexing
+- production-grade randomness for bigger payouts
+
+Live app: https://hootpot.vercel.app
+Repo: https://github.com/GiraeffleAeffle/hootpot
+Contracts are deployed on Gnosis Chain.
 ```
