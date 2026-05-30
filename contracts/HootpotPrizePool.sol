@@ -47,7 +47,8 @@ contract HootpotPrizePool {
     }
 
     constructor(address initialOwner, address initialMerchantRegistry, address initialReceiptRegistry) {
-        owner = initialOwner == address(0) ? msg.sender : initialOwner;
+        if (initialOwner == address(0)) revert InvalidInput();
+        owner = initialOwner;
         merchantRegistry = initialMerchantRegistry;
         receiptRegistry = initialReceiptRegistry;
         emit OwnershipTransferred(address(0), owner);

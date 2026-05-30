@@ -50,7 +50,7 @@ Contracts:
 
 ```text
 HootpotMerchantRegistry.sol - stores allowed merchant payout addresses for hackathon merchants.
-HootpotReceiptRegistry.sol - records verified receipts, draw seed, winner, and payout proof.
+HootpotReceiptRegistry.sol - records verified receipts, closes a round against a future Gnosis block, derives the winner from that block hash, and records payout proof.
 HootpotPrizePool.sol - fundable pool for native/ERC20 prizes and payout events; CRC pot funding still points to a Circles-capable Hootpot org/Safe/avatar.
 ```
 
@@ -73,6 +73,9 @@ forge test
 
 Deploy script:
 script/DeployHootpot.s.sol
+
+Randomness note:
+The current demo contract does not use Chainlink VRF. It closes a round against a future Gnosis block and derives the winner from that block hash. This prevents the operator from choosing the winning seed, but it is still demo-grade randomness. Production should use Chainlink VRF where supported or a stricter commit/reveal/randomness flow.
 ```
 
 ## 03 Proof

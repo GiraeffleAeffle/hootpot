@@ -9,7 +9,11 @@ contract HootpotReceiptRegistry {
     error InvalidInput();
     error ReceiptAlreadyRegistered();
     error RoundAlreadyDrawn();
+    error RoundAlreadyClosed();
+    error RoundNotClosed();
     error RoundNotDrawn();
+    error DrawBlockNotReady();
+    error DrawBlockExpired();
 
     struct Receipt {
         uint64 roundId;
@@ -22,7 +26,9 @@ contract HootpotReceiptRegistry {
     }
 
     struct Round {
+        bool closed;
         bool drawn;
+        uint256 drawBlock;
         bytes32 seed;
         bytes32 winnerReceiptId;
         address winner;
@@ -52,6 +58,7 @@ contract HootpotReceiptRegistry {
         bytes32 seed,
         uint256 winnerIndex
     );
+    event RoundClosed(uint64 indexed roundId, uint256 indexed drawBlock);
     event PayoutRecorded(
         uint64 indexed roundId,
         bytes32 indexed receiptId,
@@ -71,7 +78,8 @@ contract HootpotReceiptRegistry {
     }
 
     constructor(address initialOwner) {
-        owner = initialOwner == address(0) ? msg.sender : initialOwner;
+        if (initialOwner == address(0)) revert InvalidInput();
+        owner = initialOwner;
         emit OwnershipTransferred(address(0), owner);
     }
 
@@ -96,7 +104,7 @@ contract HootpotReceiptRegistry {
         ) {
             revert InvalidInput();
         }
-        if (rounds[roundId].drawn) revert RoundAlreadyDrawn();
+        if (rounds[roundId].closed) revert RoundAlreadyClosed();
 
         receiptId = keccak256(
             abi.encode(
@@ -137,14 +145,25 @@ contract HootpotReceiptRegistry {
         );
     }
 
-    function drawRound(uint64 roundId, bytes32 seed)
-        external
-        onlyOwner
-        returns (bytes32 winnerReceiptId, address winner)
-    {
+    function closeRound(uint64 roundId, uint256 drawBlock) external onlyOwner {
         Round storage round = rounds[roundId];
+        if (round.closed) revert RoundAlreadyClosed();
+        if (round.receiptCount == 0 || drawBlock <= block.number) revert InvalidInput();
+
+        round.closed = true;
+        round.drawBlock = drawBlock;
+
+        emit RoundClosed(roundId, drawBlock);
+    }
+
+    function drawRound(uint64 roundId) external returns (bytes32 winnerReceiptId, address winner) {
+        Round storage round = rounds[roundId];
+        if (!round.closed) revert RoundNotClosed();
         if (round.drawn) revert RoundAlreadyDrawn();
-        if (seed == bytes32(0) || round.receiptCount == 0) revert InvalidInput();
+        if (block.number <= round.drawBlock) revert DrawBlockNotReady();
+
+        bytes32 seed = blockhash(round.drawBlock);
+        if (seed == bytes32(0)) revert DrawBlockExpired();
 
         uint256 winnerIndex = uint256(keccak256(abi.encode(seed, roundId, round.receiptCount)))
             % round.receiptCount;

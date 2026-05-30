@@ -124,7 +124,7 @@ The proposed hackathon contract surface is split into three small pieces:
 
 - `contracts/HootpotMerchantRegistry.sol` stores allowed merchant payout addresses.
 - `contracts/HootpotPrizePool.sol` can be funded and can send non-CRC prize payouts.
-- `contracts/HootpotReceiptRegistry.sol` records verified receipts, draws a winner, and records payout proof.
+- `contracts/HootpotReceiptRegistry.sol` records verified receipts, closes a round against a future Gnosis block, draws the winner from that block hash, and records payout proof.
 
 The contracts deliberately do not route the customer checkout payment. The merchant still gets paid directly by the Circles transfer path.
 
@@ -147,6 +147,11 @@ forge script script/DeployHootpot.s.sol:DeployHootpot \
   --verify
 ```
 
+Use a real owner address, ideally a Safe. Do not set `HOOTPOT_OWNER` to
+`0x0000000000000000000000000000000000000000`: the contracts reject a zero owner
+because merchant setup, receipt registration, round closing, and prize payouts all
+need an operator for the prototype.
+
 After deployment, set these public app env vars and redeploy:
 
 ```bash
@@ -155,12 +160,18 @@ NEXT_PUBLIC_HOOTPOT_REGISTRY_ADDRESS=0x...
 NEXT_PUBLIC_HOOTPOT_POOL_ADDRESS=0x...
 ```
 
+Winner selection:
+
+```text
+The current demo contract does not use Chainlink VRF. HootpotReceiptRegistry closes a round against a future Gnosis block and derives the winner from that block hash. That is transparent and prevents the owner from choosing the seed, but it is not oracle-grade randomness. For production, replace this with Chainlink VRF where supported or a stricter commit/reveal/randomness flow.
+```
+
 The safest demo flow is:
 
 1. Payer pays a configured merchant through the Circles host.
 2. Backend verifies the receipt reference on Gnosis Chain.
 3. Backend or operator registers that receipt on the registry contract.
-4. Registry draws one payer address for the round.
+4. Registry closes the round against a future Gnosis block and derives the winner from that block hash.
 5. Hootpot Safe sends the cashback and records the payout tx hash.
 
 Gnosis Pay can be added later as another receipt source through an official API or webhook. Raw card settlement transactions alone are not enough for a clean merchant-level Hootpot receipt, so the current app labels that path as a future extension.

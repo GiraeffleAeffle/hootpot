@@ -9,7 +9,7 @@ The safe first version is:
 1. Customer pays a configured merchant in CRC through the Circles miniapp host.
 2. Hootpot verifies the payment tx hash and receipt reference.
 3. Hootpot registers the eligible receipt on-chain.
-4. Hootpot draws one winner from registered receipts.
+4. Hootpot closes the round against a future Gnosis block and draws one winner from registered receipts after that block exists.
 5. The Hootpot Safe or pool pays the cashback separately.
 6. Hootpot records the payout tx hash on the registry.
 
@@ -55,9 +55,9 @@ The checkout path still pays merchants directly. None of these contracts pull fu
 
 ## Draw Model
 
-The hackathon draw can use a transparent seed, for example a future Gnosis block hash recorded by the backend. The contract stores the seed and winner so the result can be recomputed.
+The hackathon draw uses a future Gnosis block hash. The owner can register verified receipts and close the round with a future `drawBlock`; after that block exists, anyone can call `drawRound`. The contract stores the block hash seed and winner so the result can be recomputed.
 
-This is good enough for a demo but is not production randomness. A production version should use a stronger public randomness source or a commit/reveal process with stricter timing rules.
+This is good enough for a demo but is not Chainlink VRF. A production version should use a stronger public randomness source, such as Chainlink VRF where supported, or a commit/reveal process with stricter timing rules.
 
 ## Gnosis Pay Extension
 

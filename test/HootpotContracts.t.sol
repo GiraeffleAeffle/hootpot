@@ -5,6 +5,10 @@ import { HootpotMerchantRegistry } from "../contracts/HootpotMerchantRegistry.so
 import { HootpotPrizePool } from "../contracts/HootpotPrizePool.sol";
 import { HootpotReceiptRegistry } from "../contracts/HootpotReceiptRegistry.sol";
 
+interface Vm {
+    function roll(uint256 newHeight) external;
+}
+
 contract MockToken {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -36,6 +40,8 @@ contract MockToken {
 }
 
 contract HootpotContractsTest {
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
     address private constant OWNER = address(0xA11CE);
     address private constant MERCHANT = address(0xB0B);
     address private constant PAYER = address(0xCAFE);
@@ -85,7 +91,12 @@ contract HootpotContractsTest {
         assertEq(registry.receiptAt(1, 0), firstReceipt);
         assertEq(registry.receiptAt(1, 1), secondReceipt);
 
-        (bytes32 winnerReceiptId, address winner) = registry.drawRound(1, keccak256("seed"));
+        registry.closeRound(1, block.number + 1);
+        (bool tooEarly,) = address(registry).call(abi.encodeWithSelector(registry.drawRound.selector, 1));
+        require(!tooEarly, "draw should wait for draw block");
+
+        vm.roll(block.number + 2);
+        (bytes32 winnerReceiptId, address winner) = registry.drawRound(1);
         require(winner == PAYER || winner == WINNER, "winner not from receipts");
         require(winnerReceiptId == firstReceipt || winnerReceiptId == secondReceipt, "bad receipt");
 

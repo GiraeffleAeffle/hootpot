@@ -34,7 +34,8 @@ contract HootpotMerchantRegistry {
     }
 
     constructor(address initialOwner) {
-        owner = initialOwner == address(0) ? msg.sender : initialOwner;
+        if (initialOwner == address(0)) revert InvalidInput();
+        owner = initialOwner;
         emit OwnershipTransferred(address(0), owner);
     }
 
