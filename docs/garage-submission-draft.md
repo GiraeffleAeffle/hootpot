@@ -63,10 +63,16 @@ There does not appear to be an official Circles merchant registry today. Hootpot
 If the form requires deployed contract addresses:
 
 ```text
-No deployed contract address yet. Contract source is included and compiles with Foundry:
+No deployed contract address yet. Contract source is included and tested with Foundry:
 - contracts/HootpotMerchantRegistry.sol
 - contracts/HootpotReceiptRegistry.sol
 - contracts/HootpotPrizePool.sol
+
+Tests:
+forge test
+
+Deploy script:
+script/DeployHootpot.s.sol
 ```
 
 ## 03 Proof

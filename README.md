@@ -130,6 +130,31 @@ The contracts deliberately do not route the customer checkout payment. The merch
 
 CRC pot funding should point at `NEXT_PUBLIC_HOOTPOT_POT_ADDRESS`, ideally a Hootpot org/Safe/avatar that can receive Circles transfers. `HootpotPrizePool` is useful for native/ERC20 prize funding and payout proofs.
 
+Run contract checks:
+
+```bash
+forge test
+```
+
+Deploy the contract set after choosing an owner address:
+
+```bash
+HOOTPOT_OWNER=0xYourOwnerAddress \
+forge script script/DeployHootpot.s.sol:DeployHootpot \
+  --rpc-url "$GNOSIS_RPC_URL" \
+  --private-key "$PRIVATE_KEY" \
+  --broadcast \
+  --verify
+```
+
+After deployment, set these public app env vars and redeploy:
+
+```bash
+NEXT_PUBLIC_HOOTPOT_MERCHANT_REGISTRY_ADDRESS=0x...
+NEXT_PUBLIC_HOOTPOT_REGISTRY_ADDRESS=0x...
+NEXT_PUBLIC_HOOTPOT_POOL_ADDRESS=0x...
+```
+
 The safest demo flow is:
 
 1. Payer pays a configured merchant through the Circles host.
