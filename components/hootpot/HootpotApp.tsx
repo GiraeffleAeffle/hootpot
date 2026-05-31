@@ -257,6 +257,7 @@ export function HootpotApp() {
   const [isPaying, setIsPaying] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSyncingGnosisPay, setIsSyncingGnosisPay] = useState(false);
+  const [isFundingPot, setIsFundingPot] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isRecordingPayout, setIsRecordingPayout] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -630,6 +631,57 @@ export function HootpotApp() {
     }
   }
 
+  async function fundPot() {
+    const normalized = normalizeAmount(topUpAmount);
+    if (!potConfigured || !normalized || isFundingPot) return;
+
+    if (!address || !isConnected || !isMiniappHost) {
+      window.location.assign(topUpUrl);
+      return;
+    }
+
+    setIsFundingPot(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const txResponse = await fetch("/api/hootpot/topup/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantAddress: address,
+          amount: normalized,
+        }),
+      });
+      const txPayload = (await txResponse.json()) as {
+        ok?: boolean;
+        transactions?: { to: string; data?: string; value?: string }[];
+        error?: string;
+      };
+      if (!txResponse.ok || !txPayload.transactions?.length) {
+        const message =
+          txPayload.error === "no_transfer_path"
+            ? "No Circles transfer path to the pot yet. The pot must accept your CRC through trust or group membership first."
+            : txPayload.error === "pot_not_configured"
+              ? "The Hootpot pot address is not configured."
+              : txPayload.error === "invalid_amount"
+                ? "Enter a valid CRC amount."
+                : txPayload.error ?? "Could not build the pot funding transaction.";
+        throw new Error(message);
+      }
+
+      const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
+      await sendTransactions(txPayload.transactions);
+      setMessage(
+        `Sent ${normalized} CRC toward the Hootpot pot. The displayed balance updates after Circles indexing.`,
+      );
+      await refreshState({ preserveSelection: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not fund the pot.");
+    } finally {
+      setIsFundingPot(false);
+    }
+  }
+
   async function recordPayout() {
     setIsRecordingPayout(true);
     setError(null);
@@ -799,10 +851,10 @@ export function HootpotApp() {
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
                 Circles group
               </p>
-              <h2 className="text-2xl font-black leading-tight">Join Hootpot</h2>
+              <h2 className="text-2xl font-black leading-tight">HOOT Group</h2>
               <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
-                Support HOOT in Circles Core. The pot below only counts CRC that
-                has actually landed in the Hootpot Safe.
+                Set HOOT as an affiliate group in Circles Core. Pot funding is a
+                separate CRC transfer to the Hootpot Safe below.
               </p>
               <p className="mt-2 font-mono text-xs font-bold text-[#746b80]">
                 {formatAddress(GROUP_ADDRESS)}
@@ -812,20 +864,16 @@ export function HootpotApp() {
           <div className="flex flex-wrap gap-2 md:justify-end">
             <a
               href={GROUP_URL}
-              target="_blank"
-              rel="noreferrer"
               className={cn(
                 "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#d8f36a] px-3 text-sm font-black text-[#1f2a0a]",
                 !groupConfigured && "pointer-events-none opacity-50",
               )}
             >
               <Star className="size-4" />
-              Support HOOT
+              Open Group
             </a>
             <a
               href={GROUP_METRICS_URL}
-              target="_blank"
-              rel="noreferrer"
               className={cn(
                 "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#251d3f] bg-white px-3 text-sm font-black text-[#251d3f]",
                 !groupConfigured && "pointer-events-none opacity-50",
@@ -994,6 +1042,10 @@ export function HootpotApp() {
                   value={`${MAX_CASHBACK_CRC} CRC`}
                 />
               </div>
+              <div className="rounded-[8px] border border-[#706095] bg-[#31264f] p-3 text-sm font-semibold leading-5 text-[#d9d1ea]">
+                Direct funding needs a Circles path to this Safe. If no path
+                exists, the pot has to trust the sender first.
+              </div>
               <div className="grid gap-2">
                 <label className="text-sm font-semibold">
                   Fund Hootpot Safe
@@ -1009,19 +1061,23 @@ export function HootpotApp() {
                     </span>
                   </div>
                 </label>
-                <a
-                  href={topUpUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <Button
+                  type="button"
+                  disabled={!potConfigured || !normalizedTopUpAmount || isFundingPot}
+                  onClick={fundPot}
                   className={cn(
-                    "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#ff7a1a] px-3 text-sm font-black text-[#1c140b]",
-                    (!potConfigured || !normalizedTopUpAmount) &&
-                      "pointer-events-none opacity-50",
+                    "h-10 rounded-[8px] bg-[#ff7a1a] px-3 text-sm font-black text-[#1c140b] hover:bg-[#ff8c3d]",
+                    (!potConfigured || !normalizedTopUpAmount || isFundingPot) &&
+                      "opacity-50",
                   )}
                 >
-                  Send CRC to Pot
+                  {isFundingPot
+                    ? "Funding..."
+                    : isMiniappHost
+                      ? "Fund In App"
+                      : "Open Transfer"}
                   <ArrowRight className="size-4" />
-                </a>
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1347,16 +1403,14 @@ export function HootpotApp() {
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <InfoPanel
             title="HOOT Support Group"
-            body="Support HOOT in Circles Core. The cashback pot is the real CRC balance of the Hootpot Safe."
+            body="Open the HOOT group in Circles Core to set affiliate support. This does not directly fund cashback."
             action={
               GROUP_URL ? (
                 <a
                   href={GROUP_URL}
-                  target="_blank"
-                  rel="noreferrer"
                   className="inline-flex items-center gap-1 text-sm font-black text-[#251d3f]"
                 >
-                  Join / Support
+                  Open Group
                   <ExternalLink className="size-4" />
                 </a>
               ) : (

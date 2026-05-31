@@ -1,5 +1,11 @@
 import { crcToAtto, hexToBytes, normalizeTxHash } from "@/lib/hootpot/amounts";
-import { isConfiguredAddress } from "@/lib/hootpot/config";
+import {
+  isConfiguredAddress,
+  normalizeAmount,
+  POT_ADDRESS,
+  ROUND_ID,
+} from "@/lib/hootpot/config";
+import { encodeHootpotTransferData } from "@/lib/hootpot/transferData";
 import type { HootpotTicket } from "@/lib/server/hootpot/store";
 
 export type MiniappTransaction = {
@@ -82,6 +88,45 @@ export async function buildHootpotPaymentTransactions(input: {
     crcToAtto(ticket.amount),
     {
       txData: hexToBytes(ticket.transferData),
+      useWrappedBalances: true,
+    },
+  );
+
+  return transactions.map((transaction) => ({
+    to: transaction.to,
+    data: transaction.data,
+    value: String(transaction.value ?? BigInt(0)),
+  }));
+}
+
+export async function buildHootpotTopUpTransactions(input: {
+  participantAddress: string;
+  amount: string;
+}): Promise<MiniappTransaction[]> {
+  if (!isConfiguredAddress(POT_ADDRESS)) {
+    throw new Error("pot_not_configured");
+  }
+  if (!isConfiguredAddress(input.participantAddress)) {
+    throw new Error("participant_required");
+  }
+  const normalizedAmount = normalizeAmount(input.amount);
+  if (!normalizedAmount) {
+    throw new Error("invalid_amount");
+  }
+
+  const [{ Sdk }, { TransferBuilder }] = await Promise.all([
+    import("@aboutcircles/sdk"),
+    import("@aboutcircles/sdk-transfers"),
+  ]);
+  const sdk = new Sdk();
+  const transferBuilder = new TransferBuilder(sdk.circlesConfig);
+  const transferData = encodeHootpotTransferData(`hootpot:topup:${ROUND_ID}`);
+  const transactions = await transferBuilder.constructAdvancedTransfer(
+    input.participantAddress as `0x${string}`,
+    POT_ADDRESS as `0x${string}`,
+    crcToAtto(normalizedAmount),
+    {
+      txData: hexToBytes(transferData),
       useWrappedBalances: true,
     },
   );
