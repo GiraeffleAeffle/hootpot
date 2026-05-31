@@ -302,6 +302,47 @@ forge script script/EnableHootpotOpenJoinViaSafe.s.sol:EnableHootpotOpenJoinViaS
   --broadcast
 ```
 
+## Hootpot Safe Operations
+
+Some operator actions cannot be signed by a normal user account. The donated
+HOOT is owned by the Hootpot Safe, so redemption has to be signed by that Safe
+or by a Safe owner executing a Safe transaction locally.
+
+Current Hootpot Safe:
+
+```text
+0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5
+```
+
+If the Safe cannot be selected inside the Circles/Gnosis host, use the local
+Safe-owner scripts. First make the Hootpot Safe trust the collateral avatar that
+backed the donated HOOT. For the first test donation, that is the donor account:
+
+```bash
+HOOTPOT_SAFE=0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5 \
+HOOTPOT_COLLATERAL_AVATAR=0x7D2eC03A058457053ea77e30a72FC1130e5F5C3C \
+PRIVATE_KEY="$PRIVATE_KEY" \
+forge script script/HootpotSafeOps.s.sol:TrustHootpotCollateralViaSafe \
+  --rpc-url "$GNOSIS_RPC_URL" \
+  --broadcast
+```
+
+After Circles indexing catches up, redeem donated HOOT into CRC collateral held
+by the Hootpot Safe:
+
+```bash
+HOOTPOT_SAFE=0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5 \
+HOOTPOT_REDEEM_AMOUNT=1 \
+PRIVATE_KEY="$PRIVATE_KEY" \
+GNOSIS_RPC_URL="$GNOSIS_RPC_URL" \
+node scripts/redeem-hoot-via-safe.mjs
+```
+
+Changing `HOOTPOT_ADMIN_SECRET` or using a normal user account does not grant
+custody over the Safe's HOOT. To operate fully in-app, use a pot address that
+the Circles/Gnosis host can actually select and sign for, then migrate funds
+from this Safe.
+
 ## Next Production Slice
 
 - Configure a real merchant recipient and Hootpot pot address for a complete live Circles checkout flow.

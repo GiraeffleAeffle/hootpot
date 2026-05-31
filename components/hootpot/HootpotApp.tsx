@@ -1995,6 +1995,12 @@ export function HootpotApp() {
                         ? `Safe can redeem ${formatAttoCrc(supportState?.potMaxRedeemableAtto)} CRC after collateral trust is indexed.`
                         : `Select the Hootpot Safe ${formatAddress(POT_ADDRESS)} to redeem.`}
                     </p>
+                    {!isPotOwnerConnected ? (
+                      <p className="text-xs font-semibold leading-4 text-[#c9c1dc]">
+                        If the Circles host cannot select that Safe, run the
+                        local Safe-owner scripts from the README instead.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="grid gap-2">
                     <label className="text-sm font-semibold">
