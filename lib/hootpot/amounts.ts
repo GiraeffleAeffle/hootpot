@@ -7,6 +7,13 @@ export function crcToAtto(amount: string): bigint {
   return wholeAtto + fractionalAtto;
 }
 
+export function attoToCrcNumber(amount: bigint): number {
+  const whole = amount / ATTO_PER_CRC;
+  const fractional = amount % ATTO_PER_CRC;
+  const paddedFraction = fractional.toString().padStart(18, "0").slice(0, 4);
+  return Number(`${whole}.${paddedFraction}`);
+}
+
 export function hexToBytes(hex: string): Uint8Array {
   const normalized = hex.startsWith("0x") ? hex.slice(2) : hex;
   if (normalized.length % 2 !== 0 || /[^a-fA-F0-9]/.test(normalized)) {

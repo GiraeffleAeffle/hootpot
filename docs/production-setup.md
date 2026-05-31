@@ -90,6 +90,36 @@ Optional custom ledger key:
 HOOTPOT_LEDGER_KEY=hootpot:ledger
 ```
 
+### HOOT Open Join
+
+Users can star the HOOT group without this, but they cannot self-serve group
+membership and mint/support HOOT until the group has an open service.
+
+Deploy the service:
+
+```bash
+HOOTPOT_GROUP=0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0 \
+forge script script/DeployHootpotOpenGroupService.s.sol:DeployHootpotOpenGroupService \
+  --rpc-url "$GNOSIS_RPC_URL" \
+  --private-key "$PRIVATE_KEY" \
+  --broadcast
+```
+
+Set the deployed address in Vercel and redeploy:
+
+```text
+NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS=0x...
+```
+
+Then open Hootpot with the HOOT owner Safe selected:
+
+```text
+https://hootpot.vercel.app/?operator=1
+```
+
+Click `Enable Open Join`. After that, normal users can click `Join HOOT` in the
+miniapp before minting/supporting HOOT.
+
 ### Gnosis Pay Webhooks
 
 Normally Hootpot fetches the Gnosis Pay webhook public key from:

@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hootpot Architecture Overview</title>
+    <style>
+      :root {
+        --ink: #171428;
+        --muted: #6f667c;
+        --line: #2b2145;
+        --paper: #fffdf8;
+        --wash: #f7f1e8;
+        --green: #d8f36a;
+        --orange: #ff7a1a;
+        --violet: #e9e2ff;
+        --teal: #0d7f5f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #fbf8f2;
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.5;
+      }
+
+      main {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 56px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(40px, 7vw, 88px);
+        line-height: 0.95;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 24px;
+        line-height: 1.1;
+      }
+
+      h3 {
+        font-size: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+      }
+
+      code {
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.92em;
+      }
+
+      .hero,
+      .panel,
+      .node,
+      .callout {
+        border: 2px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 24px;
+        align-items: end;
+        padding: 28px;
+        box-shadow: 0 8px 0 var(--line);
+      }
+
+      .subtitle {
+        margin-top: 14px;
+        max-width: 780px;
+        color: #4f475c;
+        font-size: 19px;
+        font-weight: 650;
+      }
+
+      .logo {
+        width: 112px;
+        height: 112px;
+        border: 2px solid var(--line);
+        border-radius: 8px;
+        background: var(--wash) url("../public/assets/hootpot-group-avatar-v2.png")
+          center / cover;
+      }
+
+      .grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .cols-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .section {
+        margin-top: 28px;
+      }
+
+      .panel {
+        padding: 22px;
+      }
+
+      .panel > p,
+      .panel li {
+        color: #4f475c;
+        font-weight: 560;
+      }
+
+      .tagrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .tag {
+        border-radius: 6px;
+        padding: 5px 10px;
+        background: var(--violet);
+        color: #2a2064;
+        font-weight: 800;
+      }
+
+      .tag.green {
+        background: var(--green);
+        color: #1f2a0a;
+      }
+
+      .tag.orange {
+        background: var(--orange);
+        color: #1c140b;
+      }
+
+      .tag.teal {
+        background: var(--teal);
+        color: white;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .node {
+        min-height: 132px;
+        padding: 16px;
+      }
+
+      .node strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 18px;
+      }
+
+      .node p {
+        color: #4f475c;
+        font-size: 14px;
+        font-weight: 620;
+      }
+
+      .node.green {
+        background: #f4ffd1;
+      }
+
+      .node.orange {
+        background: #fff1e6;
+      }
+
+      .node.violet {
+        background: #f3efff;
+      }
+
+      .node.teal {
+        background: #e9fbf5;
+      }
+
+      .steps {
+        display: grid;
+        gap: 10px;
+        margin: 16px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .steps li {
+        display: grid;
+        grid-template-columns: 32px 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 12px;
+        border: 1px solid #d8cfbe;
+        border-radius: 8px;
+        background: var(--wash);
+      }
+
+      .num {
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: var(--green);
+        color: #1f2a0a;
+        font-weight: 900;
+      }
+
+      .address-grid {
+        display: grid;
+        grid-template-columns: 190px 1fr;
+        gap: 8px 14px;
+        margin-top: 16px;
+        font-size: 14px;
+      }
+
+      .address-grid dt {
+        color: var(--muted);
+        font-weight: 800;
+      }
+
+      .address-grid dd {
+        margin: 0;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      }
+
+      .callout {
+        padding: 16px;
+        background: #fff7ed;
+      }
+
+      .callout strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      a {
+        color: #2a2064;
+        font-weight: 800;
+      }
+
+      @media (max-width: 820px) {
+        .hero,
+        .cols-2,
+        .cols-3,
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .logo {
+          width: 88px;
+          height: 88px;
+        }
+
+        .address-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div>
+          <h1>Hootpot Architecture</h1>
+          <p class="subtitle">
+            A production-shaped map for HOOT membership, group funding, merchant
+            receipts, and random cashback paybacks.
+          </p>
+          <div class="tagrow">
+            <span class="tag green">Circles group</span>
+            <span class="tag orange">CRC receipts</span>
+            <span class="tag">Gnosis Pay sync</span>
+            <span class="tag teal">Safe payout pot</span>
+          </div>
+        </div>
+        <div class="logo" aria-label="Hootpot group avatar"></div>
+      </section>
+
+      <section class="section grid cols-2">
+        <article class="panel">
+          <h2>The short answer</h2>
+          <p style="margin-top: 12px">
+            The HOOT Circles group is enough for joining and community support.
+            The extra Hootpot contracts are not needed for a user to join HOOT
+            or mint/support HOOT. They are optional proof and operator contracts
+            for merchant allowlists, receipt registration, draw records, and
+            non-CRC prize payouts.
+          </p>
+        </article>
+
+        <article class="panel">
+          <h2>Current blocker</h2>
+          <p style="margin-top: 12px">
+            The HOOT group currently has no open membership service. Until the
+            group owner Safe sets one, each member has to be accepted by the
+            group owner/service before that user can mint HOOT. Hootpot now has
+            a small open service contract and an owner-only setup flow for that.
+          </p>
+        </article>
+      </section>
+
+      <section class="section panel">
+        <h2>System map</h2>
+        <div class="flow">
+          <div class="node green">
+            <strong>1. Join HOOT</strong>
+            <p>
+              User trusts HOOT. If open join is enabled, the service also makes
+              HOOT trust the user. Both directions are needed for a clean group
+              mint path.
+            </p>
+          </div>
+          <div class="node violet">
+            <strong>2. Support HOOT</strong>
+            <p>
+              User sends CRC to the HOOT mint handler. The group treasury
+              receives backing collateral and the user receives HOOT group
+              tokens.
+            </p>
+          </div>
+          <div class="node orange">
+            <strong>3. Create receipts</strong>
+            <p>
+              Receipts come from Circles merchant checkout or from Gnosis Pay
+              transaction metadata through SIWE sync or signed webhooks.
+            </p>
+          </div>
+          <div class="node teal">
+            <strong>4. Pay cashback</strong>
+            <p>
+              Hootpot selects one eligible receipt and pays the user back from
+              the payout Safe or a future treasury sweep.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section grid cols-3">
+        <article class="panel">
+          <h2>HOOT group</h2>
+          <ul class="steps">
+            <li>
+              <span class="num">A</span>
+              <span>Identity and community funding layer.</span>
+            </li>
+            <li>
+              <span class="num">B</span>
+              <span>Members are accounts the group trusts.</span>
+            </li>
+            <li>
+              <span class="num">C</span>
+              <span>Affiliate starring is recurring passive support.</span>
+            </li>
+          </ul>
+        </article>
+
+        <article class="panel">
+          <h2>Hootpot app</h2>
+          <ul class="steps">
+            <li>
+              <span class="num">A</span>
+              <span>Builds Circles transactions through the miniapp host.</span>
+            </li>
+            <li>
+              <span class="num">B</span>
+              <span>Stores receipts, draw state, and payout proofs.</span>
+            </li>
+            <li>
+              <span class="num">C</span>
+              <span>Fetches group, pot, and user state from Gnosis Chain.</span>
+            </li>
+          </ul>
+        </article>
+
+        <article class="panel">
+          <h2>Optional contracts</h2>
+          <ul class="steps">
+            <li>
+              <span class="num">A</span>
+              <span>Open group service makes membership self-serve.</span>
+            </li>
+            <li>
+              <span class="num">B</span>
+              <span>Receipt registry publishes round and draw proofs.</span>
+            </li>
+            <li>
+              <span class="num">C</span>
+              <span>Prize pool is useful for non-CRC prize custody.</span>
+            </li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="section grid cols-2">
+        <article class="panel">
+          <h2>User flow in the app</h2>
+          <ol class="steps">
+            <li>
+              <span class="num">1</span>
+              <span>Open Hootpot inside the Circles host or playground.</span>
+            </li>
+            <li>
+              <span class="num">2</span>
+              <span>Click <strong>Join HOOT</strong>. This builds the trust and
+              open-service transactions.</span>
+            </li>
+            <li>
+              <span class="num">3</span>
+              <span>After indexing, enter an amount and click
+              <strong>Mint HOOT</strong>.</span>
+            </li>
+            <li>
+              <span class="num">4</span>
+              <span>Pay a participating merchant or sync Gnosis Pay receipts.</span>
+            </li>
+            <li>
+              <span class="num">5</span>
+              <span>Eligible receipts enter the cashback draw.</span>
+            </li>
+          </ol>
+        </article>
+
+        <article class="panel">
+          <h2>Operator flow</h2>
+          <ol class="steps">
+            <li>
+              <span class="num">1</span>
+              <span>Deploy <code>HootpotOpenGroupService</code> with the HOOT
+              group address.</span>
+            </li>
+            <li>
+              <span class="num">2</span>
+              <span>Set <code>NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS</code>
+              and redeploy.</span>
+            </li>
+            <li>
+              <span class="num">3</span>
+              <span>Open <code>?operator=1</code> as the HOOT owner Safe and
+              click <strong>Enable Open Join</strong>.</span>
+            </li>
+            <li>
+              <span class="num">4</span>
+              <span>Fund the payout Safe, run a draw, send the payback, and
+              record the payout transaction.</span>
+            </li>
+          </ol>
+        </article>
+      </section>
+
+      <section class="section panel">
+        <h2>Live addresses</h2>
+        <dl class="address-grid">
+          <dt>HOOT group</dt>
+          <dd>0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0</dd>
+          <dt>Group owner Safe</dt>
+          <dd>0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5</dd>
+          <dt>Current group service</dt>
+          <dd>0x0000000000000000000000000000000000000000</dd>
+          <dt>Mint handler</dt>
+          <dd>0xBF7D36C8292Eef10105b14E981FDB2AEc2363823</dd>
+          <dt>Treasury</dt>
+          <dd>0x7C3091f2f2D6e2B838641Ef8020Adb2E1E966771</dd>
+          <dt>Merchant registry</dt>
+          <dd>0x0FdAAb2F122493c08260042d6109E38AF101C189</dd>
+          <dt>Receipt registry</dt>
+          <dd>0xDf977829358499a735D9e05C4A32b1C1C5e64Ae8</dd>
+          <dt>Prize pool</dt>
+          <dd>0x0e0cd3B2f2e48B31c813a64814E35215634c5290</dd>
+        </dl>
+      </section>
+
+      <section class="section grid cols-2">
+        <article class="callout">
+          <strong>Why people had to be trusted manually</strong>
+          <p>
+            In Circles protocol groups, group members are the accounts the group
+            trusts. For a base group, the service address exists specifically so
+            owners can automate membership updates. With no service set, the
+            owner Safe is the practical path.
+          </p>
+        </article>
+
+        <article class="callout">
+          <strong>Why Gnosis Pay still matters</strong>
+          <p>
+            Gnosis Pay can provide real card receipt metadata, but production
+            domains need SIWE/CORS whitelisting and webhooks must be configured
+            by the partner setup. Until then, Circles checkout is the directly
+            demonstrable payment path.
+          </p>
+        </article>
+      </section>
+
+      <section class="section panel">
+        <h2>What is production-ready vs still missing</h2>
+        <div class="grid cols-2" style="margin-top: 16px">
+          <div>
+            <h3>Implemented now</h3>
+            <ul>
+              <li>HOOT group state lookup from Gnosis Chain.</li>
+              <li>Join HOOT transaction builder.</li>
+              <li>HOOT mint/fund transaction builder through the mint handler.</li>
+              <li>Owner-only open join setup transaction builder.</li>
+              <li>Gnosis Pay SIWE sync and webhook ingestion endpoints.</li>
+              <li>Receipt ledger, draw state, payout recording, and pot balance.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Still required externally</h3>
+            <ul>
+              <li>Deploy the open group service and set it as HOOT service.</li>
+              <li>Configure real merchant payout addresses.</li>
+              <li>Configure durable Postgres or KV storage in Vercel.</li>
+              <li>Get <code>hootpot.vercel.app</code> whitelisted by Gnosis Pay.</li>
+              <li>Fund the payout Safe or wire a treasury sweep policy.</li>
+              <li>Replace blockhash draw randomness with a stronger source.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section panel">
+        <h2>Reference facts from the docs</h2>
+        <ul>
+          <li>
+            Circles groups have members defined as accounts the group trusts;
+            member CRC can be minted 1:1 into group CRC.
+          </li>
+          <li>
+            Base groups have an owner, service address, fee collection address,
+            treasury, mint handler, and membership conditions.
+          </li>
+          <li>
+            The base mint handler lets users mint group tokens by sending CRC to
+            the handler, using pathfinding and wrapped balances.
+          </li>
+          <li>
+            Affiliate groups are selected by starring a group page; the selected
+            affiliate group receives 1/12 of daily CRC issuance.
+          </li>
+          <li>
+            Gnosis Pay production domains must be registered for SIWE/CORS, and
+            webhooks need a public HTTPS endpoint.
+          </li>
+        </ul>
+        <p style="margin-top: 14px; color: var(--muted); font-weight: 700">
+          Sources: Circles docs pages "Technical Group Details" and "Mint group
+          tokens"; Gnosis Pay docs pages "Integration models" and "Webhooks".
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

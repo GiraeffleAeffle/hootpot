@@ -15,6 +15,10 @@ import {
   normalizeCrcNumber,
 } from "@/lib/server/hootpot/potBalance";
 import {
+  getHootpotGroupState,
+  type HootpotGroupState,
+} from "@/lib/server/hootpot/group";
+import {
   buildGnosisCrcTransferUrl,
   encodeHootpotTransferData,
 } from "@/lib/hootpot/transferData";
@@ -81,6 +85,7 @@ export type HootpotState = {
   eligibleTickets: HootpotTicket[];
   pendingTickets: HootpotTicket[];
   potTotalCrc: number;
+  group: HootpotGroupState | null;
   availableCashbackCrc: number;
   winnerTicket: HootpotTicket | null;
   draw: HootpotDraw | null;
@@ -322,7 +327,10 @@ export async function getHootpotState(): Promise<HootpotState> {
       ticket.status === "pending_payment" || ticket.status === "payment_submitted",
   );
   const activeDraw = ledger.draw?.roundId === ROUND_ID ? ledger.draw : null;
-  const potTotalCrc = await getConfiguredPotBalanceCrc();
+  const [potTotalCrc, group] = await Promise.all([
+    getConfiguredPotBalanceCrc(),
+    getHootpotGroupState(),
+  ]);
   const drawnWinner =
     activeDraw === null
       ? null
@@ -343,6 +351,7 @@ export async function getHootpotState(): Promise<HootpotState> {
     eligibleTickets,
     pendingTickets,
     potTotalCrc,
+    group,
     availableCashbackCrc,
     winnerTicket,
     draw: activeDraw,

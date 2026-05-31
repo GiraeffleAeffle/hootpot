@@ -31,6 +31,8 @@ import {
   formatAddress,
   GROUP_ADDRESS,
   GROUP_METRICS_URL,
+  GROUP_MINT_HANDLER_ADDRESS,
+  GROUP_TREASURY_ADDRESS,
   GROUP_URL,
   isConfiguredAddress,
   MAX_CASHBACK_CRC,
@@ -95,12 +97,29 @@ type HootpotDraw = {
   payoutRecordedAt?: string;
 };
 
+type HootpotGroupState = {
+  groupAddress: string;
+  isGroupOnHub: boolean;
+  owner: string;
+  service: string;
+  configuredOpenService: string;
+  openJoinEnabled: boolean;
+  feeCollection: string;
+  mintHandler: string;
+  treasury: string;
+  membershipConditions: string[];
+  treasuryBalanceCrc: number;
+  totalSupplyCrc: number;
+  error?: string;
+};
+
 type HootpotState = {
   roundId: string;
   tickets: HootpotTicket[];
   eligibleTickets: HootpotTicket[];
   pendingTickets: HootpotTicket[];
   potTotalCrc: number;
+  group: HootpotGroupState | null;
   availableCashbackCrc: number;
   winnerTicket: HootpotTicket | null;
   draw: HootpotDraw | null;
@@ -139,6 +158,14 @@ type ProfileView = {
 };
 
 const EMPTY_TICKETS: HootpotTicket[] = [];
+
+type HootSupportState = {
+  groupAddress: string;
+  mintHandler: string;
+  participantTrustsGroup: boolean;
+  groupTrustsParticipant: boolean;
+  maxMintableAtto: string;
+};
 
 function isValidAmount(value: string): boolean {
   return normalizeAmount(value) !== null;
@@ -193,6 +220,47 @@ function formatCrcAmount(value: string | number | null | undefined): string {
 
 function formatCrcBalance(value: string | number | null | undefined): string {
   return `${formatCrcAmount(value)} CRC`;
+}
+
+function formatAttoCrc(value: string | null | undefined): string {
+  if (!value) return "0";
+  try {
+    const atto = BigInt(value);
+    const attoPerCrc = BigInt("1000000000000000000");
+    const twoDecimalScale = BigInt("10000000000000000");
+    const whole = atto / attoPerCrc;
+    const fractional = atto % attoPerCrc;
+    const decimals = (fractional / twoDecimalScale)
+      .toString()
+      .padStart(2, "0")
+      .replace(/0+$/, "");
+    return decimals ? `${whole}.${decimals}` : whole.toString();
+  } catch {
+    return "0";
+  }
+}
+
+function isPositiveAtto(value: string | null | undefined): boolean {
+  if (!value) return false;
+  try {
+    return BigInt(value) > BigInt(0);
+  } catch {
+    return false;
+  }
+}
+
+function crcStringToAtto(value: string | null): bigint | null {
+  if (!value) return null;
+  const [whole, fractional = ""] = value.split(".");
+  try {
+    const attoPerCrc = BigInt("1000000000000000000");
+    return (
+      BigInt(whole) * attoPerCrc +
+      BigInt(fractional.padEnd(18, "0").slice(0, 18) || "0")
+    );
+  } catch {
+    return null;
+  }
 }
 
 function avatarTypeLabel(type?: string): string {
@@ -259,8 +327,17 @@ export function HootpotApp() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSyncingGnosisPay, setIsSyncingGnosisPay] = useState(false);
   const [isFundingPot, setIsFundingPot] = useState(false);
+  const [supportAmount, setSupportAmount] = useState("5");
+  const [supportState, setSupportState] = useState<HootSupportState | null>(null);
+  const [supportRefreshNonce, setSupportRefreshNonce] = useState(0);
+  const [isLoadingSupport, setIsLoadingSupport] = useState(false);
+  const [isTrustingHoot, setIsTrustingHoot] = useState(false);
+  const [isSupportingHoot, setIsSupportingHoot] = useState(false);
   const [trustedSenderAddress, setTrustedSenderAddress] = useState("");
+  const [groupMemberAddress, setGroupMemberAddress] = useState("");
+  const [isAddingGroupMember, setIsAddingGroupMember] = useState(false);
   const [isTrustingSender, setIsTrustingSender] = useState(false);
+  const [isEnablingOpenJoin, setIsEnablingOpenJoin] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isRecordingPayout, setIsRecordingPayout] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -287,6 +364,8 @@ export function HootpotApp() {
       setIsRefreshing(false);
     }
   }
+
+  const groupConfigured = isConfiguredAddress(GROUP_ADDRESS);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -349,10 +428,52 @@ export function HootpotApp() {
     };
   }, [address]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (!address || !groupConfigured) {
+        setSupportState(null);
+        return;
+      }
+
+      setIsLoadingSupport(true);
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/hootpot/group/support/state?participantAddress=${encodeURIComponent(address)}`,
+            { cache: "no-store" },
+          );
+          const payload = (await response.json()) as {
+            ok?: boolean;
+            support?: HootSupportState;
+            error?: string;
+          };
+          if (!response.ok || !payload.support) {
+            throw new Error(payload.error ?? "Could not load HOOT support state.");
+          }
+          if (!cancelled) setSupportState(payload.support);
+        } catch (err) {
+          if (!cancelled) {
+            console.warn("[hootpot] could not load HOOT support state", err);
+            setSupportState(null);
+          }
+        } finally {
+          if (!cancelled) setIsLoadingSupport(false);
+        }
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [address, groupConfigured, supportRefreshNonce]);
+
   const tickets = state?.tickets ?? EMPTY_TICKETS;
   const eligibleTickets = state?.eligibleTickets ?? EMPTY_TICKETS;
   const pendingTickets = state?.pendingTickets ?? EMPTY_TICKETS;
   const potTotal = state?.potTotalCrc ?? 0;
+  const group = state?.group ?? null;
   const winnerTicket = state?.winnerTicket ?? null;
   const availableCashback = state?.availableCashbackCrc ?? 0;
   const draw = state?.draw ?? null;
@@ -370,11 +491,40 @@ export function HootpotApp() {
   );
 
   const potConfigured = isConfiguredAddress(POT_ADDRESS);
-  const groupConfigured = isConfiguredAddress(GROUP_ADDRESS);
   const registryConfigured = isConfiguredAddress(REGISTRY_ADDRESS);
   const poolConfigured = isConfiguredAddress(POOL_ADDRESS);
   const merchantRegistryConfigured = isConfiguredAddress(MERCHANT_REGISTRY_ADDRESS);
+  const groupMintHandlerAddress = isConfiguredAddress(group?.mintHandler ?? "")
+    ? (group?.mintHandler ?? null)
+    : isConfiguredAddress(GROUP_MINT_HANDLER_ADDRESS)
+      ? GROUP_MINT_HANDLER_ADDRESS
+      : null;
+  const groupTreasuryAddress = isConfiguredAddress(group?.treasury ?? "")
+    ? (group?.treasury ?? null)
+    : isConfiguredAddress(GROUP_TREASURY_ADDRESS)
+      ? GROUP_TREASURY_ADDRESS
+      : null;
+  const openJoinServiceConfigured = isConfiguredAddress(
+    group?.configuredOpenService ?? "",
+  );
+  const openJoinEnabled = Boolean(group?.openJoinEnabled);
+  const isGroupOwnerOrServiceConnected =
+    Boolean(address && group) &&
+    (address?.toLowerCase() === group?.owner.toLowerCase() ||
+      address?.toLowerCase() === group?.service.toLowerCase());
+  const hasHootMintPath = Boolean(
+    supportState?.participantTrustsGroup &&
+      supportState?.groupTrustsParticipant &&
+      isPositiveAtto(supportState.maxMintableAtto),
+  );
+  const normalizedSupportAmount = normalizeAmount(supportAmount);
+  const requestedSupportAtto = crcStringToAtto(normalizedSupportAmount);
+  const canMintRequestedSupport =
+    hasHootMintPath &&
+    requestedSupportAtto !== null &&
+    BigInt(supportState?.maxMintableAtto ?? "0") >= requestedSupportAtto;
   const normalizedTrustedSenderAddress = trustedSenderAddress.trim();
+  const normalizedGroupMemberAddress = groupMemberAddress.trim();
   const isPotOwnerConnected =
     potConfigured &&
     Boolean(address) &&
@@ -386,6 +536,29 @@ export function HootpotApp() {
     isPotOwnerConnected &&
     isConfiguredAddress(normalizedTrustedSenderAddress) &&
     normalizedTrustedSenderAddress.toLowerCase() !== POT_ADDRESS.toLowerCase();
+  const canAddGroupMember =
+    operatorMode &&
+    isMiniappHost &&
+    isConnected &&
+    isGroupOwnerOrServiceConnected &&
+    isConfiguredAddress(normalizedGroupMemberAddress) &&
+    normalizedGroupMemberAddress.toLowerCase() !== GROUP_ADDRESS.toLowerCase();
+  const canSupportHoot =
+    isConnected &&
+    isMiniappHost &&
+    groupConfigured &&
+    Boolean(normalizedSupportAmount) &&
+    canMintRequestedSupport &&
+    !isSupportingHoot;
+  const canEnableOpenJoin =
+    operatorMode &&
+    isMiniappHost &&
+    isConnected &&
+    Boolean(group) &&
+    openJoinServiceConfigured &&
+    !openJoinEnabled &&
+    address?.toLowerCase() === group?.owner.toLowerCase() &&
+    !isEnablingOpenJoin;
   const topUpTransferData = encodeHootpotTransferData(`hootpot:topup:${ROUND_ID}`);
   const normalizedTopUpAmount = normalizeAmount(topUpAmount);
   const topUpUrl =
@@ -697,6 +870,199 @@ export function HootpotApp() {
     }
   }
 
+  async function joinHootGroup() {
+    if (!address || !isConnected || !isMiniappHost) {
+      setError("Open Hootpot inside the Circles host with a connected wallet.");
+      return;
+    }
+    if (isTrustingHoot) return;
+
+    setIsTrustingHoot(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const txResponse = await fetch("/api/hootpot/group/join/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantAddress: address }),
+      });
+      const txPayload = (await txResponse.json()) as {
+        ok?: boolean;
+        transactions?: { to: string; data?: string; value?: string }[];
+        error?: string;
+      };
+      if (!txResponse.ok || !txPayload.transactions?.length) {
+        const message =
+          txPayload.error === "open_join_not_enabled"
+            ? "HOOT open join is not enabled yet. The group owner Safe must set the open join service once."
+            : txPayload.error ?? "Could not build the HOOT join transaction.";
+        throw new Error(message);
+      }
+
+      const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
+      await sendTransactions(txPayload.transactions);
+      setMessage("Submitted HOOT join. Refresh after Circles indexing.");
+      await refreshState({ preserveSelection: true });
+      setSupportRefreshNonce((value) => value + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not join HOOT.");
+    } finally {
+      setIsTrustingHoot(false);
+    }
+  }
+
+  async function supportHoot() {
+    const normalized = normalizeAmount(supportAmount);
+    if (!address || !isConnected || !isMiniappHost) {
+      setError("Open Hootpot inside the Circles host with a connected wallet.");
+      return;
+    }
+    if (!normalized) {
+      setError("Enter a valid CRC amount for HOOT support.");
+      return;
+    }
+    if (isSupportingHoot) return;
+
+    setIsSupportingHoot(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const txResponse = await fetch("/api/hootpot/group/fund/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantAddress: address,
+          amount: normalized,
+        }),
+      });
+      const txPayload = (await txResponse.json()) as {
+        ok?: boolean;
+        transactions?: { to: string; data?: string; value?: string }[];
+        error?: string;
+      };
+      if (!txResponse.ok || !txPayload.transactions?.length) {
+        const message =
+          txPayload.error === "no_group_mint_path"
+            ? "No HOOT mint path yet. Join HOOT first, then try again after Circles indexing."
+            : txPayload.error === "invalid_amount"
+              ? "Enter a valid CRC amount."
+              : txPayload.error ?? "Could not build HOOT support transaction.";
+        throw new Error(message);
+      }
+
+      const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
+      await sendTransactions(txPayload.transactions);
+      setMessage(
+        `Submitted ${normalized} CRC through the HOOT mint handler. The treasury updates after Circles indexing.`,
+      );
+      await refreshState({ preserveSelection: true });
+      setSupportRefreshNonce((value) => value + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not support HOOT.");
+    } finally {
+      setIsSupportingHoot(false);
+    }
+  }
+
+  async function addGroupMember() {
+    const memberAddress = normalizedGroupMemberAddress;
+    if (!isConfiguredAddress(memberAddress)) {
+      setError("Enter the Circles account that should become a HOOT member.");
+      return;
+    }
+    if (!address || !isConnected || !isMiniappHost) {
+      setError("Open Hootpot inside the Circles host and select the HOOT owner Safe.");
+      return;
+    }
+    if (isAddingGroupMember) return;
+
+    setIsAddingGroupMember(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const txResponse = await fetch("/api/hootpot/group/members/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          operatorAddress: address,
+          memberAddress,
+        }),
+      });
+      const txPayload = (await txResponse.json()) as {
+        ok?: boolean;
+        transactions?: { to: string; data?: string; value?: string }[];
+        error?: string;
+      };
+      if (!txResponse.ok || !txPayload.transactions?.length) {
+        const message =
+          txPayload.error === "group_owner_or_service_required"
+            ? "The active account must be the HOOT group owner/service Safe to add members."
+            : txPayload.error ?? "Could not build the HOOT member transaction.";
+        throw new Error(message);
+      }
+
+      const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
+      await sendTransactions(txPayload.transactions);
+      setMessage(`${formatAddress(memberAddress)} was submitted as a HOOT member.`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not add the HOOT member.",
+      );
+    } finally {
+      setIsAddingGroupMember(false);
+    }
+  }
+
+  async function enableOpenJoinService() {
+    if (!address || !isConnected || !isMiniappHost) {
+      setError("Open Hootpot inside the Circles host and select the HOOT owner Safe.");
+      return;
+    }
+    if (isEnablingOpenJoin) return;
+
+    setIsEnablingOpenJoin(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const txResponse = await fetch("/api/hootpot/group/service/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operatorAddress: address }),
+      });
+      const txPayload = (await txResponse.json()) as {
+        ok?: boolean;
+        transactions?: { to: string; data?: string; value?: string }[];
+        error?: string;
+      };
+      if (!txResponse.ok) {
+        const message =
+          txPayload.error === "open_service_not_configured"
+            ? "Deploy HootpotOpenGroupService and set NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS first."
+            : txPayload.error === "group_owner_required"
+              ? "The active account must be the HOOT group owner Safe."
+              : txPayload.error ?? "Could not build open join setup transaction.";
+        throw new Error(message);
+      }
+      if (!txPayload.transactions?.length) {
+        setMessage("HOOT open join service is already enabled.");
+        return;
+      }
+
+      const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
+      await sendTransactions(txPayload.transactions);
+      setMessage("Submitted HOOT open join service setup. Refresh after indexing.");
+      await refreshState({ preserveSelection: true });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not enable the HOOT open join service.",
+      );
+    } finally {
+      setIsEnablingOpenJoin(false);
+    }
+  }
+
   async function trustSenderForPot() {
     if (isTrustingSender) return;
     const trustedAddress = normalizedTrustedSenderAddress;
@@ -960,6 +1326,139 @@ export function HootpotApp() {
           </div>
         </section>
 
+        <section className="grid gap-4 rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4 md:grid-cols-[1fr_0.9fr]">
+          <div>
+            <div className="flex items-center gap-2">
+              <Star className="size-5 text-[#ff7a1a]" />
+              <h2 className="text-xl font-black">Join And Fund HOOT</h2>
+            </div>
+            <p className="mt-2 text-sm font-semibold leading-5 text-[#746b80]">
+              Join HOOT once, then mint HOOT through the group mint handler.
+              Your CRC becomes treasury collateral and you receive HOOT group
+              tokens. Starring HOOT is separate recurring affiliate support.
+            </p>
+            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+              <ProofRow
+                label="You accept HOOT"
+                value={
+                  supportState?.participantTrustsGroup
+                    ? "yes"
+                    : isLoadingSupport
+                      ? "checking"
+                      : "not yet"
+                }
+              />
+              <ProofRow
+                label="HOOT accepts you"
+                value={
+                  supportState?.groupTrustsParticipant
+                    ? "yes"
+                    : isLoadingSupport
+                      ? "checking"
+                      : "not yet"
+                }
+              />
+              <ProofRow
+                label="Open join"
+                value={
+                  openJoinEnabled
+                    ? "enabled"
+                    : openJoinServiceConfigured
+                      ? "setup pending"
+                      : "service missing"
+                }
+              />
+              <ProofRow
+                label="Mintable now"
+                value={`${formatAttoCrc(supportState?.maxMintableAtto)} CRC`}
+              />
+              <ProofRow
+                label="Mint handler"
+                value={formatAddress(
+                  supportState?.mintHandler ?? groupMintHandlerAddress ?? null,
+                )}
+              />
+              <ProofRow
+                label="Treasury"
+                value={formatAddress(groupTreasuryAddress)}
+              />
+              <ProofRow
+                label="Treasury backing"
+                value={formatCrcBalance(group?.treasuryBalanceCrc ?? 0)}
+              />
+              <ProofRow
+                label="HOOT supply"
+                value={formatCrcBalance(group?.totalSupplyCrc ?? 0)}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={GROUP_URL}
+                className={cn(
+                  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#d8f36a] px-3 text-sm font-black text-[#1f2a0a]",
+                  !groupConfigured && "pointer-events-none opacity-50",
+                )}
+              >
+                <Star className="size-4" />
+                Star HOOT
+              </a>
+              <Button
+                type="button"
+                disabled={!isConnected || !isMiniappHost || !groupConfigured || isTrustingHoot}
+                onClick={joinHootGroup}
+                className="h-10 rounded-[8px] bg-[#251d3f] text-[#fffdf8] hover:bg-[#382b66]"
+              >
+                <ShieldCheck className="size-4" />
+                {isTrustingHoot ? "Submitting..." : "Join HOOT"}
+              </Button>
+            </div>
+            <label className="grid gap-2 text-sm font-semibold">
+              Fund HOOT
+              <div className="flex h-10 overflow-hidden rounded-[8px] border border-[#d8cfbe] bg-white text-[#171428]">
+                <input
+                  value={supportAmount}
+                  onChange={(event) => setSupportAmount(event.target.value)}
+                  inputMode="decimal"
+                  className="min-w-0 flex-1 px-3 font-bold outline-none"
+                />
+                <span className="flex items-center border-l border-[#e9dfce] px-3 text-sm font-black text-[#746b80]">
+                  CRC
+                </span>
+              </div>
+            </label>
+            <Button
+              type="button"
+              disabled={!canSupportHoot}
+              onClick={supportHoot}
+              className="h-10 rounded-[8px] bg-[#ff7a1a] text-[#1c140b] hover:bg-[#ff8f3f]"
+            >
+              <Coins className="size-4" />
+              {isSupportingHoot ? "Submitting..." : "Mint HOOT"}
+            </Button>
+            {!supportState?.groupTrustsParticipant ? (
+              <p className="rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3 text-xs font-semibold leading-4 text-[#746b80]">
+                {openJoinEnabled
+                  ? "Click Join HOOT first. After indexing, this mint path should open."
+                  : "HOOT open join is not enabled yet. The owner Safe needs a one-time service setup."}
+              </p>
+            ) : supportState?.participantTrustsGroup &&
+              !isPositiveAtto(supportState.maxMintableAtto) ? (
+              <p className="rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3 text-xs font-semibold leading-4 text-[#746b80]">
+                No mintable CRC flow to HOOT right now. This usually means there
+                is not enough trusted CRC balance or the Circles pathfinder has
+                not indexed the latest join yet.
+              </p>
+            ) : hasHootMintPath && !canMintRequestedSupport ? (
+              <p className="rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3 text-xs font-semibold leading-4 text-[#746b80]">
+                The entered amount is above the current mint path. Try at most{" "}
+                {formatAttoCrc(supportState?.maxMintableAtto)} CRC.
+              </p>
+            ) : null}
+          </div>
+        </section>
+
         {(message || error) && (
           <section
             className={cn(
@@ -1166,6 +1665,74 @@ export function HootpotApp() {
                           : `Active account must be the Hootpot Safe ${formatAddress(POT_ADDRESS)}.`}
                       </p>
                     </div>
+                    </div>
+                    <div className="grid gap-3 rounded-[8px] border border-[#706095] bg-[#fffdf8] p-3 text-[#171428]">
+                      <div className="flex gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-[#d8f36a] text-[#1f2a0a]">
+                          <Users className="size-5" />
+                        </span>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
+                            Open join setup
+                          </p>
+                          <p className="text-sm font-semibold leading-5 text-[#4f475c]">
+                            One-time owner action: set the HOOT group service so
+                            users can join themselves from the app.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid gap-2 text-xs font-semibold leading-4 text-[#746b80]">
+                        <p>
+                          Service:{" "}
+                          {openJoinServiceConfigured
+                            ? formatAddress(group?.configuredOpenService ?? null)
+                            : "deploy + env required"}
+                        </p>
+                        <p>Status: {openJoinEnabled ? "enabled" : "not enabled"}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        disabled={!canEnableOpenJoin}
+                        onClick={enableOpenJoinService}
+                        className="h-10 rounded-[8px] bg-[#d8f36a] text-[#1f2a0a] hover:bg-[#e2f77d]"
+                      >
+                        <ShieldCheck className="size-4" />
+                        {isEnablingOpenJoin ? "Submitting..." : "Enable Open Join"}
+                      </Button>
+                    </div>
+                    <div className="grid gap-3 rounded-[8px] border border-[#706095] bg-[#fffdf8] p-3 text-[#171428]">
+                      <div className="flex gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-[#e9e2ff] text-[#2a2064]">
+                        <Users className="size-5" />
+                      </span>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
+                            Fallback member invite
+                          </p>
+                          <p className="text-sm font-semibold leading-5 text-[#4f475c]">
+                            Manual backup only. Normal users should use Join HOOT
+                            after open join is enabled.
+                          </p>
+                      </div>
+                    </div>
+                    <label className="grid gap-2 text-sm font-semibold">
+                      Member address
+                      <input
+                        value={groupMemberAddress}
+                        onChange={(event) => setGroupMemberAddress(event.target.value)}
+                        placeholder="0x member"
+                        className="h-10 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      disabled={!canAddGroupMember || isAddingGroupMember}
+                      onClick={addGroupMember}
+                      className="h-10 rounded-[8px] bg-[#251d3f] text-[#fffdf8] hover:bg-[#382b66]"
+                    >
+                      <Users className="size-4" />
+                      {isAddingGroupMember ? "Submitting..." : "Add HOOT Member"}
+                    </Button>
                   </div>
                   <div className="grid gap-2">
                     <label className="text-sm font-semibold">

@@ -35,7 +35,7 @@ live prototype
 Short description:
 
 ```text
-Hootpot turns CRC merchant payments and Gnosis Pay card receipts into eligible receipts for a community-funded cashback pot. Users can open the HOOT Circles group from the app and star it as their affiliate group, while cashback payouts are funded by the Hootpot Safe through operator, merchant, sponsor, or future HOOT treasury funding. Verified receipts can then be paid back from the actual CRC balance held by that Safe.
+Hootpot turns CRC merchant payments and Gnosis Pay card receipts into eligible receipts for a community-funded cashback pot. Users can star, join, and mint/support the HOOT Circles group from the app; cashback payouts are funded by the Hootpot Safe through operator, merchant, sponsor, or future HOOT treasury funding. Verified receipts can then be paid back from the actual CRC balance held by that Safe.
 ```
 
 ## 02 Contracts
@@ -52,6 +52,7 @@ Contracts:
 HootpotMerchantRegistry.sol - stores allowed merchant payout addresses for hackathon merchants.
 HootpotReceiptRegistry.sol - records verified receipts, closes a round against a future Gnosis block, derives the winner from that block hash, and records payout proof.
 HootpotPrizePool.sol - fundable pool for native/ERC20 prizes and payout events; CRC pot funding still points to a Circles-capable Hootpot org/Safe/avatar.
+HootpotOpenGroupService.sol - optional BaseGroup service that lets users join HOOT themselves after the group owner Safe enables it once.
 ```
 
 Notes:
@@ -108,13 +109,13 @@ https://github.com/GiraeffleAeffle/hootpot
 Notes:
 
 ```text
-Open the live link directly or through the Circles playground. Current public build shows the Hootpot group link, contract architecture, Neon-backed receipt ledger, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint for partner ingestion. Users can star HOOT in Circles Core so the group receives affiliate CRC support over time. Circles merchant checkout is guarded until a real merchant recipient and Hootpot pot address are configured. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
+Open the live link directly or through the Circles playground. Current public build shows the Hootpot group link, Join HOOT / Mint HOOT flows, contract architecture, Neon-backed receipt ledger, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint for partner ingestion. Users can star HOOT in Circles Core so the group receives affiliate CRC support over time. Circles merchant checkout is guarded until a real merchant recipient and Hootpot pot address are configured. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
 ```
 
 Demo limitation:
 
 ```text
-The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS. Gnosis Pay receipt sync also needs hootpot.vercel.app to be enabled for SIWE in the Gnosis Pay partner setup. The HOOT affiliate group can receive passive CRC support when users star it, but an automated sweep from group/treasury support into cashback payouts is still future work.
+The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS. Gnosis Pay receipt sync also needs hootpot.vercel.app to be enabled for SIWE in the Gnosis Pay partner setup. HOOT open join requires deploying HootpotOpenGroupService and setting it as the group service once. The HOOT affiliate group can receive passive CRC support when users star it, but an automated sweep from group/treasury support into cashback payouts is still future work.
 ```
 
 Hootpot group:
@@ -124,6 +125,8 @@ HOOT Circles group: 0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0
 Group metrics: https://app.aboutcircles.com/groups/metrics/0xa31676f40eed5ea91664ab0ac188c48f6ccb54c0
 Group members/support route: https://app.aboutcircles.com/groups/members/0xa31676f40eed5ea91664ab0ac188c48f6ccb54c0
 Owner Safe: 0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5
+Mint handler: 0xBF7D36C8292Eef10105b14E981FDB2AEc2363823
+Treasury: 0x7C3091f2f2D6e2B838641Ef8020Adb2E1E966771
 ```
 
 Limitations / what is missing:
@@ -136,6 +139,7 @@ Hootpot is not yet usable by ordinary people as a live merchant product. The app
 - an on-chain/event watcher for Circles transfer data instead of only submitted tx hashes
 - production randomness, ideally Chainlink VRF where supported or a stronger commit/reveal flow
 - Gnosis Pay partner domain/webhook registration for continuous card receipt ingestion
+- one-time open-join service deployment/enabling for self-serve HOOT membership
 
 Hootpot can sync real card transaction metadata through Gnosis Pay SIWE and can ingest signed `card.transaction.*` webhooks once the endpoint is configured in the Gnosis Pay partner settings.
 ```
@@ -148,7 +152,7 @@ Demo script:
 3. Create a small CRC receipt.
 4. Pay through the Circles/Gnosis host wallet.
 5. Hootpot verifies the Gnosis Chain tx hash and marks the receipt eligible.
-6. Fund the Hootpot pot from operator/merchant/sponsor funds or future HOOT treasury support.
+6. Star/join HOOT and mint HOOT support, or fund the Hootpot pot from operator/merchant/sponsor funds.
 7. Draw a cashback winner.
 8. Pay the winner back and record the payout tx hash.
 ```
@@ -172,7 +176,7 @@ Public post:
 ```text
 I built Hootpot for the Circles Garage hackathon: a miniapp that turns a CRC merchant payment into a receipt for a community cashback pool.
 
-The demo has a deployed miniapp, a HOOT Circles group people can star for affiliate support, Gnosis Chain contracts, a Neon-backed receipt ledger, a tested receipt/draw flow, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint. It is still not a ready consumer product: there is no official Circles merchant registry wired in and no real merchant network. For now merchants have to be preconfigured by address.
+The demo has a deployed miniapp, a HOOT Circles group people can star/join/mint support for, Gnosis Chain contracts, a Neon-backed receipt ledger, a tested receipt/draw flow, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint. It is still not a ready consumer product: there is no official Circles merchant registry wired in and no real merchant network. For now merchants have to be preconfigured by address.
 
 What I would need to make this useful in the real world:
 - official merchant metadata / payout address discovery for Circles shops

@@ -16,19 +16,23 @@ function parseCrcBalance(value: string | undefined): number {
   return normalizeCrcNumber(parsed);
 }
 
-export async function getConfiguredPotBalanceCrc(): Promise<number> {
-  if (!isConfiguredAddress(POT_ADDRESS)) return 0;
+export async function getCrcBalanceCrc(address: string): Promise<number> {
+  if (!isConfiguredAddress(address)) return 0;
 
   try {
     const { Sdk } = await import("@aboutcircles/sdk");
     const sdk = new Sdk();
     const view = (await sdk.rpc.profile.getProfileView(
-      POT_ADDRESS as `0x${string}`,
+      address as `0x${string}`,
     )) as ProfileView;
 
     return parseCrcBalance(view.v2Balance ?? view.v1Balance);
   } catch (error) {
-    console.warn("[hootpot] could not load pot balance", error);
+    console.warn("[hootpot] could not load CRC balance", { address, error });
     return 0;
   }
+}
+
+export async function getConfiguredPotBalanceCrc(): Promise<number> {
+  return getCrcBalanceCrc(POT_ADDRESS);
 }

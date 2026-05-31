@@ -17,6 +17,7 @@ Circles affiliate support is a slower, passive funding path: when someone stars 
 - Embedded Circles miniapp shell from `aboutcircles/embedded-miniapp-boilerplate`
 - Host-injected wallet status through `@aboutcircles/miniapp-sdk`
 - Connected Circles account/profile/balance lookup through `@aboutcircles/sdk`
+- HOOT group state lookup, self-serve join transaction builder, and group mint/funding transaction builder
 - Merchant checkout intent builder with real Circles pathfinding transactions
 - Host wallet submission through `sendTransactions`
 - On-chain transaction hash verification for Hootpot receipt references
@@ -53,6 +54,9 @@ Copy `.env.example` to `.env.local` and fill real recipients before using paymen
 NEXT_PUBLIC_HOOTPOT_GROUP_URL=
 NEXT_PUBLIC_HOOTPOT_GROUP_ADDRESS=
 NEXT_PUBLIC_HOOTPOT_GROUP_METRICS_URL=
+NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS=
+NEXT_PUBLIC_HOOTPOT_GROUP_MINT_HANDLER_ADDRESS=
+NEXT_PUBLIC_HOOTPOT_GROUP_TREASURY_ADDRESS=
 NEXT_PUBLIC_HOOTPOT_POT_ADDRESS=
 NEXT_PUBLIC_HOOTPOT_REGISTRY_ADDRESS=
 NEXT_PUBLIC_HOOTPOT_POOL_ADDRESS=
@@ -152,14 +156,15 @@ Relevant Gnosis Pay surfaces:
 The end-to-end live loop is:
 
 1. Open Hootpot in the Circles playground.
-2. Pick a preconfigured merchant.
-3. Create a small CRC receipt.
-4. Pay the merchant through the host wallet.
-5. Let Hootpot verify the Gnosis Chain transaction hash.
-6. Fund the Hootpot pot from operator mode, merchant/sponsor funding, or future HOOT treasury flow.
-7. Draw the winner in the Cashback panel.
-8. Pay the winner back from the Hootpot Safe or pool.
-9. Record the payout tx hash to mark the receipt as paid back.
+2. Join HOOT and, once indexed, mint/support HOOT through the group mint handler.
+3. Pick a preconfigured merchant.
+4. Create a small CRC receipt.
+5. Pay the merchant through the host wallet.
+6. Let Hootpot verify the Gnosis Chain transaction hash.
+7. Fund the Hootpot pot from operator mode, merchant/sponsor funding, or future HOOT treasury flow.
+8. Draw the winner in the Cashback panel.
+9. Pay the winner back from the Hootpot Safe or pool.
+10. Record the payout tx hash to mark the receipt as paid back.
 
 This proves the core mechanism with real Circles transactions. The Gnosis Pay sync button can additionally ingest real card transaction metadata through SIWE without exposing access tokens to the browser.
 
@@ -246,6 +251,32 @@ Raw card settlement transactions alone are still not enough for clean merchant-l
 See `docs/hootpot-contract-plan.md` for the safety model and upgrade path.
 See `docs/production-setup.md` for the Vercel, durable storage, and Gnosis Pay
 partner setup steps.
+See `docs/hootpot-architecture-overview.html` for the current group, receipt,
+pot, and contract architecture map.
+
+## HOOT Group Membership
+
+Circles groups treat members as the accounts the group trusts. HOOT support has
+two separate public actions:
+
+- Star HOOT in Circles Core for recurring affiliate support.
+- Join HOOT, then mint/support HOOT in the miniapp through the group mint
+  handler.
+
+For the second action to be self-serve, deploy the open service and let the HOOT
+owner Safe set it as the group service:
+
+```bash
+HOOTPOT_GROUP=0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0 \
+forge script script/DeployHootpotOpenGroupService.s.sol:DeployHootpotOpenGroupService \
+  --rpc-url "$GNOSIS_RPC_URL" \
+  --private-key "$PRIVATE_KEY" \
+  --broadcast
+```
+
+Then set `NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS` in Vercel, redeploy,
+open `https://hootpot.vercel.app/?operator=1` as the HOOT owner Safe, and click
+`Enable Open Join`.
 
 ## Next Production Slice
 

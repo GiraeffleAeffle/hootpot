@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { HootpotMerchantRegistry } from "../contracts/HootpotMerchantRegistry.sol";
+import { HootpotOpenGroupService } from "../contracts/HootpotOpenGroupService.sol";
 import { HootpotPrizePool } from "../contracts/HootpotPrizePool.sol";
 import { HootpotReceiptRegistry } from "../contracts/HootpotReceiptRegistry.sol";
 
@@ -36,6 +37,21 @@ contract MockToken {
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
         return true;
+    }
+}
+
+contract MockBaseGroup {
+    address public lastCaller;
+    address public lastMember;
+    uint96 public lastExpiry;
+    uint256 public joinCount;
+
+    function trustBatchWithConditions(address[] calldata members, uint96 expiry) external {
+        require(members.length == 1, "members");
+        lastCaller = msg.sender;
+        lastMember = members[0];
+        lastExpiry = expiry;
+        joinCount += 1;
     }
 }
 
@@ -141,6 +157,27 @@ contract HootpotContractsTest {
         pool.sendTokenPayout(address(token), WINNER, 25, keccak256("token-payout"));
         assertEq(token.balanceOf(WINNER), 25);
         assertEq(token.balanceOf(address(pool)), 35);
+    }
+
+    function testOpenGroupServiceLetsCallerJoinConfiguredGroup() external {
+        MockBaseGroup group = new MockBaseGroup();
+        HootpotOpenGroupService service = new HootpotOpenGroupService(address(group));
+
+        service.join(address(this));
+
+        assertEq(group.lastCaller(), address(service));
+        assertEq(group.lastMember(), address(this));
+        assertEq(uint256(group.lastExpiry()), uint256(type(uint96).max));
+        assertEq(group.joinCount(), 1);
+    }
+
+    function testOpenGroupServiceCanJoinCaller() external {
+        MockBaseGroup group = new MockBaseGroup();
+        HootpotOpenGroupService service = new HootpotOpenGroupService(address(group));
+
+        service.join();
+
+        assertEq(group.lastMember(), address(this));
     }
 
     function assertEq(address actual, address expected) private pure {

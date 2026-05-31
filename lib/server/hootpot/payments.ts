@@ -1,6 +1,8 @@
 import { crcToAtto, hexToBytes, normalizeTxHash } from "@/lib/hootpot/amounts";
 import {
   isConfiguredAddress,
+  GROUP_ADDRESS,
+  GROUP_MINT_HANDLER_ADDRESS,
   normalizeAmount,
   POT_ADDRESS,
   ROUND_ID,
@@ -174,6 +176,116 @@ export async function buildPotTrustTransactions(input: {
       value: String(transaction.value ?? BigInt(0)),
     },
   ];
+}
+
+export async function buildGroupMemberTransactions(input: {
+  operatorAddress: string;
+  memberAddress: string;
+}): Promise<MiniappTransaction[]> {
+  if (!isConfiguredAddress(GROUP_ADDRESS)) {
+    throw new Error("group_not_configured");
+  }
+  if (!isConfiguredAddress(input.operatorAddress)) {
+    throw new Error("operator_required");
+  }
+  if (!isConfiguredAddress(input.memberAddress)) {
+    throw new Error("member_required");
+  }
+  if (input.memberAddress.toLowerCase() === GROUP_ADDRESS.toLowerCase()) {
+    throw new Error("member_is_group");
+  }
+
+  const { BaseGroupContract } = await import("@aboutcircles/sdk-core/baseGroup");
+  const group = new BaseGroupContract({
+    address: GROUP_ADDRESS as `0x${string}`,
+    rpcUrl: gnosisRpcUrl(),
+  });
+  const owner = await group.owner();
+  const service = await group.service();
+  const normalizedOperator = input.operatorAddress.toLowerCase();
+  if (
+    normalizedOperator !== owner.toLowerCase() &&
+    normalizedOperator !== service.toLowerCase()
+  ) {
+    throw new Error("group_owner_or_service_required");
+  }
+
+  const transaction = group.trust(input.memberAddress as `0x${string}`, MAX_UINT96);
+  return [
+    {
+      to: transaction.to,
+      data: transaction.data,
+      value: String(transaction.value ?? BigInt(0)),
+    },
+  ];
+}
+
+export async function getHootSupportState(input: {
+  participantAddress: string;
+}): Promise<{
+  groupAddress: string;
+  mintHandler: string;
+  participantTrustsGroup: boolean;
+  groupTrustsParticipant: boolean;
+  maxMintableAtto: string;
+}> {
+  if (!isConfiguredAddress(GROUP_ADDRESS)) {
+    throw new Error("group_not_configured");
+  }
+  if (!isConfiguredAddress(input.participantAddress)) {
+    throw new Error("participant_required");
+  }
+
+  const mintHandler = await getGroupMintHandler();
+  const { HubV2ContractMinimal } = await import("@aboutcircles/sdk-core/minimal");
+  const [{ Sdk }] = await Promise.all([import("@aboutcircles/sdk")]);
+  const hub = new HubV2ContractMinimal({
+    address: HUB_V2_ADDRESS,
+    rpcUrl: gnosisRpcUrl(),
+  });
+  const [participantTrustsGroup, groupTrustsParticipant] = await Promise.all([
+    hub.isTrusted(
+      input.participantAddress as `0x${string}`,
+      GROUP_ADDRESS as `0x${string}`,
+    ),
+    hub.isTrusted(
+      GROUP_ADDRESS as `0x${string}`,
+      input.participantAddress as `0x${string}`,
+    ),
+  ]);
+
+  let maxMintableAtto = "0";
+  try {
+    const sdk = new Sdk();
+    const maxFlow = await sdk.rpc.pathfinder.findMaxFlow({
+      from: input.participantAddress.toLowerCase() as `0x${string}`,
+      to: mintHandler.toLowerCase() as `0x${string}`,
+      useWrappedBalances: true,
+    });
+    maxMintableAtto = maxFlow.toString();
+  } catch (error) {
+    console.warn("[hootpot] could not calculate HOOT mintable amount", error);
+  }
+
+  return {
+    groupAddress: GROUP_ADDRESS,
+    mintHandler,
+    participantTrustsGroup,
+    groupTrustsParticipant,
+    maxMintableAtto,
+  };
+}
+
+async function getGroupMintHandler(): Promise<string> {
+  if (isConfiguredAddress(GROUP_MINT_HANDLER_ADDRESS)) {
+    return GROUP_MINT_HANDLER_ADDRESS;
+  }
+  const { BaseGroupContract } = await import("@aboutcircles/sdk-core/baseGroup");
+  const group = new BaseGroupContract({
+    address: GROUP_ADDRESS as `0x${string}`,
+    rpcUrl: gnosisRpcUrl(),
+  });
+  return group.BASE_MINT_HANDLER();
 }
 
 export async function verifyHootpotPaymentTx(
