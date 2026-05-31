@@ -18,6 +18,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Hootpot",
   description: "Circles receipts and affiliate flow powering community cashback.",
+  icons: {
+    icon: "/assets/hootpot-group-avatar-v2.png",
+    apple: "/assets/hootpot-group-avatar-v2.png",
+  },
+  openGraph: {
+    title: "Hootpot",
+    description:
+      "Circles receipts and affiliate flow powering community cashback.",
+    images: ["/assets/hootpot-group-avatar-v2.png"],
+  },
 };
 
 export default function RootLayout({

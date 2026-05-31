@@ -2,7 +2,6 @@
 
 import {
   ArrowRight,
-  Bird,
   Check,
   Coins,
   Copy,
@@ -11,9 +10,11 @@ import {
   Gift,
   ReceiptText,
   RotateCw,
+  Star,
   Store,
   Ticket,
   Trophy,
+  Users,
   Wallet,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -28,6 +29,8 @@ import {
   cashbackForAmount,
   DEFAULT_CHECKOUT_AMOUNT,
   formatAddress,
+  GROUP_ADDRESS,
+  GROUP_METRICS_URL,
   GROUP_URL,
   isConfiguredAddress,
   MAX_CASHBACK_CRC,
@@ -356,6 +359,7 @@ export function HootpotApp() {
   );
 
   const potConfigured = isConfiguredAddress(POT_ADDRESS);
+  const groupConfigured = isConfiguredAddress(GROUP_ADDRESS);
   const registryConfigured = isConfiguredAddress(REGISTRY_ADDRESS);
   const poolConfigured = isConfiguredAddress(POOL_ADDRESS);
   const merchantRegistryConfigured = isConfiguredAddress(MERCHANT_REGISTRY_ADDRESS);
@@ -675,9 +679,15 @@ export function HootpotApp() {
           <div className="flex flex-col justify-between gap-6">
             <div>
               <div className="mb-3 flex items-center gap-2">
-                <div className="flex size-10 items-center justify-center rounded-[8px] bg-[#251d3f] text-[#f8f2e8]">
-                  <Bird className="size-5" />
-                </div>
+                <span
+                  aria-hidden="true"
+                  className="size-12 rounded-[8px] border border-[#251d3f] object-cover"
+                  style={{
+                    backgroundImage: "url('/assets/hootpot-group-avatar-v2.png')",
+                    backgroundPosition: "center",
+                    backgroundSize: "cover",
+                  }}
+                />
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
                     Circles receipt cashback
@@ -762,6 +772,60 @@ export function HootpotApp() {
             </div>
           </section>
         ) : null}
+
+        <section className="grid gap-4 rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4 shadow-[0_6px_0_#251d3f] md:grid-cols-[1fr_auto] md:items-center">
+          <div className="flex min-w-0 items-center gap-4">
+            <span
+              aria-hidden="true"
+              className="size-16 shrink-0 rounded-[8px] border border-[#251d3f] object-cover"
+              style={{
+                backgroundImage: "url('/assets/hootpot-group-avatar-v2.png')",
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+              }}
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
+                Circles group
+              </p>
+              <h2 className="text-2xl font-black leading-tight">Join Hootpot</h2>
+              <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
+                Star HOOT in Circles Core to route {AFFILIATE_DRIP_CRC} CRC/day
+                into the community pot. Group membership is invited by the
+                Hootpot Safe.
+              </p>
+              <p className="mt-2 font-mono text-xs font-bold text-[#746b80]">
+                {formatAddress(GROUP_ADDRESS)}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 md:justify-end">
+            <a
+              href={GROUP_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#d8f36a] px-3 text-sm font-black text-[#1f2a0a]",
+                !groupConfigured && "pointer-events-none opacity-50",
+              )}
+            >
+              <Star className="size-4" />
+              Support HOOT
+            </a>
+            <a
+              href={GROUP_METRICS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#251d3f] bg-white px-3 text-sm font-black text-[#251d3f]",
+                !groupConfigured && "pointer-events-none opacity-50",
+              )}
+            >
+              <Users className="size-4" />
+              Group Stats
+            </a>
+          </div>
+        </section>
 
         {(message || error) && (
           <section
@@ -1261,7 +1325,7 @@ export function HootpotApp() {
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <InfoPanel
             title="Affiliate Group"
-            body={`Selecting Hootpot routes ${AFFILIATE_DRIP_CRC} CRC/day into the community pot.`}
+            body={`Star HOOT to route ${AFFILIATE_DRIP_CRC} CRC/day into the community pot.`}
             action={
               GROUP_URL ? (
                 <a
@@ -1270,7 +1334,7 @@ export function HootpotApp() {
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 text-sm font-black text-[#251d3f]"
                 >
-                  Open Group
+                  Join / Support
                   <ExternalLink className="size-4" />
                 </a>
               ) : (

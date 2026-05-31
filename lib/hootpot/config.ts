@@ -17,7 +17,17 @@ export const MAX_CASHBACK_CRC = 50;
 export const POT_ADDRESS =
   process.env.NEXT_PUBLIC_HOOTPOT_POT_ADDRESS ?? DEFAULT_ZERO_ADDRESS;
 
-export const GROUP_URL = process.env.NEXT_PUBLIC_HOOTPOT_GROUP_URL ?? "";
+export const GROUP_ADDRESS =
+  process.env.NEXT_PUBLIC_HOOTPOT_GROUP_ADDRESS ??
+  "0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0";
+
+export const GROUP_URL =
+  process.env.NEXT_PUBLIC_HOOTPOT_GROUP_URL ??
+  `https://app.aboutcircles.com/groups/members/${GROUP_ADDRESS}`;
+
+export const GROUP_METRICS_URL =
+  process.env.NEXT_PUBLIC_HOOTPOT_GROUP_METRICS_URL ??
+  `https://app.aboutcircles.com/groups/metrics/${GROUP_ADDRESS}`;
 
 export const REGISTRY_ADDRESS =
   process.env.NEXT_PUBLIC_HOOTPOT_REGISTRY_ADDRESS ?? DEFAULT_ZERO_ADDRESS;
