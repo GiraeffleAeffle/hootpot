@@ -115,7 +115,7 @@ Open the live link directly or through the Circles playground. Current public bu
 Demo limitation:
 
 ```text
-The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS. Gnosis Pay receipt sync also needs hootpot.vercel.app to be enabled for SIWE in the Gnosis Pay partner setup. HOOT open join service is deployed, but the HOOT owner Safe still needs to set it as the group service once. The HOOT affiliate group can receive passive CRC support when users star it, but an automated sweep from group/treasury support into cashback payouts is still future work.
+The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS. Gnosis Pay receipt sync also needs hootpot.vercel.app to be enabled for SIWE in the Gnosis Pay partner setup. HOOT open join is deployed and enabled, so users can join HOOT from the miniapp before minting/supporting the group. The HOOT affiliate group can receive passive CRC support when users star it, but an automated sweep from group/treasury support into cashback payouts is still future work.
 ```
 
 Hootpot group:

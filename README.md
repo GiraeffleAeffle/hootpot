@@ -263,8 +263,8 @@ two separate public actions:
 - Join HOOT, then mint/support HOOT in the miniapp through the group mint
   handler.
 
-For the second action to be self-serve, deploy the open service and let the HOOT
-owner Safe set it as the group service:
+For the second action to be self-serve, Hootpot uses an open service as the HOOT
+group service. The deployed service is currently enabled on the group.
 
 ```bash
 HOOTPOT_GROUP=0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0 \
@@ -274,8 +274,9 @@ forge script script/DeployHootpotOpenGroupService.s.sol:DeployHootpotOpenGroupSe
   --broadcast
 ```
 
-Then set `NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS` in Vercel, redeploy,
-open `https://hootpot.vercel.app/?operator=1` as the HOOT owner Safe, and click
+If the service ever needs to be changed, set
+`NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS` in Vercel, redeploy, open
+`https://hootpot.vercel.app/?operator=1` as the HOOT owner Safe, and click
 `Enable Open Join`.
 
 Current deployed open service:

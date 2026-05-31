@@ -92,8 +92,9 @@ HOOTPOT_LEDGER_KEY=hootpot:ledger
 
 ### HOOT Open Join
 
-Users can star the HOOT group without this, but they cannot self-serve group
-membership and mint/support HOOT until the group has an open service.
+Users can star the HOOT group without this, but they need the open service for
+self-serve group membership and mint/support HOOT. The service is currently
+enabled on the HOOT group.
 
 Current deployed open service:
 
@@ -117,14 +118,15 @@ Set the deployed address in Vercel and redeploy:
 NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS=0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
 ```
 
-Then open Hootpot with the HOOT owner Safe selected:
+If the service ever needs to be changed, open Hootpot with the HOOT owner Safe
+selected:
 
 ```text
 https://hootpot.vercel.app/?operator=1
 ```
 
-Click `Enable Open Join`. After that, normal users can click `Join HOOT` in the
-miniapp before minting/supporting HOOT.
+Click `Enable Open Join`. Normal users can then click `Join HOOT` in the miniapp
+before minting/supporting HOOT.
 
 If the Circles playground cannot select the owner Safe, execute the same action
 locally through the Safe with the Safe owner private key:

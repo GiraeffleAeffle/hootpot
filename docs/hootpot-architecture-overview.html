@@ -320,10 +320,9 @@
         <article class="panel">
           <h2>Current blocker</h2>
           <p style="margin-top: 12px">
-            The HOOT open service is deployed, but the group owner Safe still
-            has to set it as the group service once. Until then, each member has
-            to be accepted by the group owner/service before that user can mint
-            HOOT.
+            The HOOT open service is deployed and enabled as the group service.
+            Users can now join HOOT from Hootpot instead of requiring a manual
+            member invite for every account.
           </p>
         </article>
       </section>
@@ -484,7 +483,7 @@
           <dt>Group owner Safe</dt>
           <dd>0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5</dd>
           <dt>Current group service</dt>
-          <dd>0x0000000000000000000000000000000000000000</dd>
+          <dd>0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df</dd>
           <dt>Open join service</dt>
           <dd>0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df</dd>
           <dt>Mint handler</dt>
@@ -539,7 +538,7 @@
           <div>
             <h3>Still required externally</h3>
             <ul>
-              <li>Set the deployed open group service as the HOOT service.</li>
+              <li>Open join service is enabled; keep it monitored.</li>
               <li>Configure real merchant payout addresses.</li>
               <li>Configure durable Postgres or KV storage in Vercel.</li>
               <li>Get <code>hootpot.vercel.app</code> whitelisted by Gnosis Pay.</li>
