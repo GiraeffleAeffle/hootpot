@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   AFFILIATE_DRIP_CRC,
   cashbackForAmount,
+  DEFAULT_ZERO_ADDRESS,
   MERCHANTS,
   POT_SEED_CRC,
   RECEIPT_BOOST_CRC,
@@ -22,6 +23,8 @@ export type HootpotTicketStatus =
   | "payment_submitted"
   | "eligible"
   | "reimbursed";
+
+export type HootpotTicketSource = "circles_checkout" | "gnosis_pay";
 
 export type HootpotTicket = {
   ticketId: string;
@@ -43,6 +46,17 @@ export type HootpotTicket = {
   txHash?: string;
   txHashes?: string[];
   verificationError?: string;
+  source?: HootpotTicketSource;
+  externalReceiptId?: string;
+  externalTransactionId?: string;
+  sourcePayloadHash?: string;
+  externalStatus?: string;
+  externalMerchantCity?: string;
+  externalMerchantCountry?: string;
+  externalMerchantMcc?: string;
+  paymentAmount?: string;
+  paymentCurrency?: string;
+  sourceAmountLabel?: string;
 };
 
 export type HootpotDraw = {
@@ -70,6 +84,26 @@ export type HootpotState = {
 type HootpotLedger = {
   tickets: HootpotTicket[];
   draw: HootpotDraw | null;
+};
+
+export type ExternalHootpotReceiptInput = {
+  source: Extract<HootpotTicketSource, "gnosis_pay">;
+  externalReceiptId: string;
+  externalTransactionId?: string;
+  sourcePayloadHash: string;
+  merchantName: string;
+  participantAddress: string;
+  amount: string;
+  paymentAmount: string;
+  paymentCurrency: string;
+  sourceAmountLabel: string;
+  externalStatus?: string;
+  externalMerchantCity?: string;
+  externalMerchantCountry?: string;
+  externalMerchantMcc?: string;
+  paidAt?: string;
+  txHash?: string;
+  txHashes?: string[];
 };
 
 const STORE_FILE = "hootpot-ledger.json";
@@ -167,8 +201,12 @@ function createIntentId(): string {
   return `hp-${ROUND_ID}-${randomBytes(8).toString("hex")}`;
 }
 
+function hashHex(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
 function hashText(value: string): bigint {
-  return BigInt(`0x${createHash("sha256").update(value).digest("hex")}`);
+  return BigInt(`0x${hashHex(value)}`);
 }
 
 function selectWinner(tickets: HootpotTicket[], seed = ROUND_ID): HootpotTicket | null {
@@ -254,10 +292,80 @@ export async function createHootpotCheckout(input: {
     paymentUrl,
     createdAt: now,
     updatedAt: now,
+    source: "circles_checkout",
   };
 
   await writeLedger({ ...ledger, tickets: [ticket, ...ledger.tickets] });
   return ticket;
+}
+
+export async function upsertExternalHootpotReceipts(input: {
+  receipts: ExternalHootpotReceiptInput[];
+}): Promise<{ importedCount: number; updatedCount: number; tickets: HootpotTicket[] }> {
+  const ledger = await readLedger();
+  const now = new Date().toISOString();
+  const tickets = [...ledger.tickets];
+  let importedCount = 0;
+  let updatedCount = 0;
+
+  for (const receipt of input.receipts) {
+    const receiptKey = `${receipt.source}:${receipt.externalReceiptId}`;
+    const deterministicTicketId = `${receipt.source}-${hashHex(receiptKey).slice(0, 32)}`;
+    const transferDataPayload = `hootpot:${receipt.source}:${receipt.externalReceiptId}`;
+    const transferData = encodeHootpotTransferData(transferDataPayload);
+    const ticketIndex = tickets.findIndex(
+      (ticket) =>
+        ticket.source === receipt.source &&
+        ticket.externalReceiptId === receipt.externalReceiptId,
+    );
+    const existing = ticketIndex >= 0 ? tickets[ticketIndex] : null;
+    const baseTicket: HootpotTicket = {
+      ticketId: existing?.ticketId ?? deterministicTicketId,
+      intentId: existing?.intentId ?? receiptKey,
+      roundId: ROUND_ID,
+      merchantId: receipt.source,
+      merchantName: receipt.merchantName,
+      merchantAddress: DEFAULT_ZERO_ADDRESS,
+      participantAddress: receipt.participantAddress,
+      amount: receipt.amount,
+      cashbackAmount: String(cashbackForAmount(receipt.amount)),
+      status: existing?.status === "reimbursed" ? "reimbursed" : "eligible",
+      transferDataPayload,
+      transferData,
+      paymentUrl: "",
+      createdAt: existing?.createdAt ?? receipt.paidAt ?? now,
+      updatedAt: now,
+      paidAt: existing?.paidAt ?? receipt.paidAt ?? now,
+      txHash: receipt.txHash ?? existing?.txHash,
+      txHashes: receipt.txHashes ?? existing?.txHashes,
+      source: receipt.source,
+      externalReceiptId: receipt.externalReceiptId,
+      externalTransactionId: receipt.externalTransactionId,
+      sourcePayloadHash: receipt.sourcePayloadHash,
+      externalStatus: receipt.externalStatus,
+      externalMerchantCity: receipt.externalMerchantCity,
+      externalMerchantCountry: receipt.externalMerchantCountry,
+      externalMerchantMcc: receipt.externalMerchantMcc,
+      paymentAmount: receipt.paymentAmount,
+      paymentCurrency: receipt.paymentCurrency,
+      sourceAmountLabel: receipt.sourceAmountLabel,
+    };
+
+    if (ticketIndex >= 0) {
+      tickets[ticketIndex] = baseTicket;
+      updatedCount += 1;
+    } else {
+      tickets.unshift(baseTicket);
+      importedCount += 1;
+    }
+  }
+
+  tickets.sort(
+    (left, right) =>
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
+  await writeLedger({ ...ledger, tickets });
+  return { importedCount, updatedCount, tickets };
 }
 
 export async function markHootpotTicketEligible(input: {

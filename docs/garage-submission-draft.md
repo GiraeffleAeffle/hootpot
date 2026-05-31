@@ -102,13 +102,13 @@ https://circles.gnosis.io/playground?url=https://hootpot.vercel.app
 Repo:
 
 ```text
-optional / not published yet
+https://github.com/GiraeffleAeffle/hootpot
 ```
 
 Notes:
 
 ```text
-Open the live link directly or through the Circles playground. Current public build shows the full Hootpot flow and contract architecture, but checkout is guarded until a real merchant recipient and Hootpot pot address are configured. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
+Open the live link directly or through the Circles playground. Current public build shows the full Hootpot flow, contract architecture, and a Gnosis Pay receipt import preview. Circles merchant checkout is guarded until a real merchant recipient and Hootpot pot address are configured. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
 ```
 
 Demo limitation:
@@ -127,9 +127,9 @@ Hootpot is not yet usable by ordinary people as a live merchant product. The pro
 - a durable backend store instead of prototype serverless storage
 - an on-chain/event watcher for Circles transfer data instead of only submitted tx hashes
 - production randomness, ideally Chainlink VRF where supported or a stronger commit/reveal flow
-- a Gnosis Pay API/webhook integration if card transactions should become eligible receipts
+- a production Gnosis Pay integration if card transactions should become eligible receipts without a preview JWT import
 
-The current Gnosis Pay angle is intentionally framed as a future integration. Raw card settlement transactions do not expose clean merchant-level receipt context for Hootpot, so a real product would need official Gnosis Pay transaction/merchant metadata or webhooks.
+The current Gnosis Pay angle is intentionally framed as an integration preview. Hootpot can import real card transaction metadata from the authenticated Gnosis Pay API, but a real product would need SIWE inside the app or partner webhooks so users never paste tokens.
 ```
 
 Demo script:
@@ -156,7 +156,7 @@ Hootpot is a local-commerce cashback layer for Circles. Instead of making mercha
 Future extension:
 
 ```text
-The same receipt model can later ingest Gnosis Pay card receipts through an official API or webhook. For the hackathon, Hootpot focuses on real Circles checkout receipts because raw card settlement transactions do not expose clean merchant-level receipt context.
+The same receipt model can ingest Gnosis Pay card receipts through the authenticated card transaction API today. For production, the correct path is SIWE auth inside the miniapp or partner webhooks with signature verification, so imported card purchases can become eligible without a developer-token UX.
 ```
 
 Public post:
@@ -164,11 +164,11 @@ Public post:
 ```text
 I built Hootpot for the Circles Garage hackathon: a miniapp that turns a CRC merchant payment into a receipt for a community cashback pool.
 
-The demo has a deployed miniapp, Gnosis Chain contracts, and a tested receipt/draw flow. It is still not a ready consumer product: there is no official Circles merchant registry wired in, no real merchant network, and no Gnosis Pay card receipt API/webhook integration yet. For now merchants have to be preconfigured by address.
+The demo has a deployed miniapp, Gnosis Chain contracts, a tested receipt/draw flow, and a Gnosis Pay card transaction import preview. It is still not a ready consumer product: there is no official Circles merchant registry wired in, no real merchant network, and the Gnosis Pay path still needs SIWE or partner webhooks. For now merchants have to be preconfigured by address.
 
 What I would need to make this useful in the real world:
 - official merchant metadata / payout address discovery for Circles shops
-- a Gnosis Pay API or webhook that exposes card transaction and merchant receipt data
+- a production Gnosis Pay SIWE or webhook connection for card transaction and merchant receipt data
 - a Hootpot Circles group/org/Safe for the pool
 - durable storage and an event watcher for verified receipt indexing
 - production-grade randomness for bigger payouts

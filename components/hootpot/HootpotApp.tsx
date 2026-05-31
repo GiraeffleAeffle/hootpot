@@ -6,6 +6,7 @@ import {
   Check,
   Coins,
   Copy,
+  CreditCard,
   ExternalLink,
   Gift,
   ReceiptText,
@@ -72,6 +73,14 @@ type HootpotTicket = {
   txHash?: string;
   txHashes?: string[];
   verificationError?: string;
+  source?: "circles_checkout" | "gnosis_pay";
+  externalStatus?: string;
+  externalMerchantCity?: string;
+  externalMerchantCountry?: string;
+  externalMerchantMcc?: string;
+  paymentAmount?: string;
+  paymentCurrency?: string;
+  sourceAmountLabel?: string;
 };
 
 type HootpotDraw = {
@@ -155,6 +164,17 @@ function winnerCopy(ticket: HootpotTicket | null): string {
   return `${ticket.merchantName} receipt can get ${cashbackForAmount(ticket.amount)} CRC back.`;
 }
 
+function ticketSourceLabel(ticket: HootpotTicket): string {
+  return ticket.source === "gnosis_pay" ? "Gnosis Pay" : "Circles";
+}
+
+function ticketAmountLabel(ticket: HootpotTicket): string {
+  if (ticket.source === "gnosis_pay") {
+    return `${ticket.sourceAmountLabel ?? `${ticket.amount} ${ticket.paymentCurrency ?? ""}`.trim()} card receipt`;
+  }
+  return `${ticket.amount} CRC`;
+}
+
 function formatCrcBalance(value: string | null | undefined): string {
   if (!value) return "0 CRC";
   const parsed = Number(value);
@@ -212,6 +232,7 @@ export function HootpotApp() {
   const [selectedMerchantId, setSelectedMerchantId] = useState(MERCHANTS[0].id);
   const [amount, setAmount] = useState(DEFAULT_CHECKOUT_AMOUNT);
   const [topUpAmount, setTopUpAmount] = useState("25");
+  const [gnosisPayToken, setGnosisPayToken] = useState("");
   const [payoutTxHash, setPayoutTxHash] = useState("");
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -220,6 +241,7 @@ export function HootpotApp() {
   const [isCreating, setIsCreating] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isImportingGnosisPay, setIsImportingGnosisPay] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isRecordingPayout, setIsRecordingPayout] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -374,6 +396,63 @@ export function HootpotApp() {
       setError(err instanceof Error ? err.message : "Could not create receipt.");
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function importGnosisPayReceipts() {
+    if (!address || !isConnected) {
+      setError("Connect the Gnosis/Circles account that owns the card receipts.");
+      return;
+    }
+    const token = gnosisPayToken.trim();
+    if (!token || isImportingGnosisPay) return;
+
+    setIsImportingGnosisPay(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/hootpot/gnosis-pay/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: token,
+          participantAddress: address,
+          limit: 25,
+        }),
+      });
+      const payload = (await response.json()) as {
+        ok?: boolean;
+        importedCount?: number;
+        updatedCount?: number;
+        skippedCount?: number;
+        state?: HootpotState;
+        error?: string;
+        detail?: string;
+      };
+      if (!response.ok || !payload.state) {
+        const message =
+          payload.error === "participant_not_linked_to_gnosis_pay_account"
+            ? "Connected wallet does not match the Gnosis Pay Safe, owner, or authenticated wallet for this token."
+            : payload.detail ?? payload.error ?? "Could not import Gnosis Pay receipts.";
+        throw new Error(message);
+      }
+
+      setState(payload.state);
+      setGnosisPayToken("");
+      const imported = payload.importedCount ?? 0;
+      const updated = payload.updatedCount ?? 0;
+      setMessage(
+        imported + updated > 0
+          ? `Imported ${imported} new and refreshed ${updated} Gnosis Pay receipts.`
+          : "No new eligible Gnosis Pay card receipts found.",
+      );
+      setActiveTicketId(payload.state.tickets[0]?.ticketId ?? null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not import Gnosis Pay receipts.",
+      );
+    } finally {
+      setIsImportingGnosisPay(false);
     }
   }
 
@@ -818,15 +897,59 @@ export function HootpotApp() {
           </Card>
         </section>
 
+        <section className="rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4">
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="flex items-center gap-2 text-xl font-black">
+                  <CreditCard className="size-5 text-[#0d7f5f]" />
+                  Gnosis Pay Receipts
+                </h2>
+                <Badge variant="outline" className="rounded-[6px]">
+                  integration preview
+                </Badge>
+              </div>
+              <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
+                Import recent card payments from the Gnosis Pay API. The token is used
+                once on the server and must match the connected Safe, owner, or auth wallet.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,360px)_auto]">
+              <input
+                value={gnosisPayToken}
+                onChange={(event) => setGnosisPayToken(event.target.value)}
+                type="password"
+                placeholder="Gnosis Pay JWT"
+                className="h-11 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
+              />
+              <Button
+                type="button"
+                disabled={
+                  !gnosisPayToken.trim() ||
+                  !isConnected ||
+                  isImportingGnosisPay
+                }
+                onClick={importGnosisPayReceipts}
+                className="h-11 rounded-[8px] bg-[#0d7f5f] px-4 text-white hover:bg-[#0b6b51]"
+              >
+                <CreditCard className="size-4" />
+                {isImportingGnosisPay ? "Importing..." : "Import Receipts"}
+              </Button>
+            </div>
+          </div>
+        </section>
+
         {activeTicket ? (
           <section className="rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
-                  Checkout intent
+                  {activeTicket.source === "gnosis_pay"
+                    ? "External receipt"
+                    : "Checkout intent"}
                 </p>
                 <h2 className="mt-1 text-xl font-black">
-                  {activeTicket.merchantName} · {activeTicket.amount} CRC
+                  {activeTicket.merchantName} · {ticketAmountLabel(activeTicket)}
                 </h2>
                 <p className="mt-1 font-mono text-xs text-[#746b80]">
                   {activeTicket.intentId}
@@ -834,6 +957,11 @@ export function HootpotApp() {
                 <p className="mt-2 text-sm font-semibold text-[#746b80]">
                   Holder: {formatAddress(activeTicket.participantAddress)}
                 </p>
+                {activeTicket.source === "gnosis_pay" ? (
+                  <p className="mt-1 text-sm font-semibold text-[#746b80]">
+                    {activeTicket.externalStatus ?? "Gnosis Pay card payment"}
+                  </p>
+                ) : null}
                 {activeTicket.txHash ? (
                   <p className="mt-1 font-mono text-xs text-[#746b80]">
                     Tx: {formatAddress(activeTicket.txHash)}
@@ -846,15 +974,17 @@ export function HootpotApp() {
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => copyText("data", activeTicket.transferData)}
-                  className="rounded-[8px]"
-                >
-                  <Copy className="size-4" />
-                  {copied === "data" ? "Copied" : "Data"}
-                </Button>
+                {activeTicket.source !== "gnosis_pay" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => copyText("data", activeTicket.transferData)}
+                    className="rounded-[8px]"
+                  >
+                    <Copy className="size-4" />
+                    {copied === "data" ? "Copied" : "Data"}
+                  </Button>
+                ) : null}
                 {activeTicket.status === "pending_payment" ? (
                   <Button
                     type="button"
@@ -948,7 +1078,8 @@ export function HootpotApp() {
                     <span>
                       <span className="block font-black">{ticket.merchantName}</span>
                       <span className="block text-sm text-[#746b80]">
-                        {ticket.amount} CRC · {formatTime(ticket.createdAt)}
+                        {ticketSourceLabel(ticket)} · {ticketAmountLabel(ticket)} ·{" "}
+                        {formatTime(ticket.createdAt)}
                       </span>
                     </span>
                     <span
@@ -1155,11 +1286,11 @@ export function HootpotApp() {
             }
           />
           <InfoPanel
-            title="Gnosis Pay Later"
-            body="Card receipts can become another entry source once a Gnosis Pay API or webhook is available."
+            title="Gnosis Pay Receipts"
+            body="Card receipts can enter Hootpot through the Gnosis Pay transaction API; webhooks are the production path."
             action={
               <span className="text-sm font-black text-[#0d7f5f]">
-                extension path
+                import preview
               </span>
             }
           />

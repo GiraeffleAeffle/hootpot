@@ -21,6 +21,7 @@ The merchant payment goes to the merchant. Hootpot uses the verified receipt as 
 - Preconfigured merchant payout addresses, no shopper address entry
 - Operator draw and payout-recording flow for the live demo loop
 - Merchant registry, prize pool, and receipt/draw registry contracts
+- Gnosis Pay card transaction import as an external receipt source
 - Server-backed receipt/ticket ledger in `.data/hootpot-ledger.json`
 - Pot top-up transfer link
 - Weekly cashback preview with deterministic ticket selection
@@ -56,6 +57,7 @@ NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE=
 NEXT_PUBLIC_HOOTPOT_MERCHANT_TWO=
 NEXT_PUBLIC_HOOTPOT_MERCHANT_THREE=
 GNOSIS_RPC_URL=
+GNOSIS_PAY_API_BASE_URL=
 ```
 
 Without configured addresses, payment and top-up links stay guarded in the UI.
@@ -102,6 +104,23 @@ The first shippable model is deliberately simple:
 
 This avoids split payments in the checkout path: the merchant gets paid immediately, and Hootpot only handles the later cashback.
 
+## Gnosis Pay Receipt Import
+
+Hootpot can also import recent card receipts from the Gnosis Pay API:
+
+1. The connected wallet provides a short-lived Gnosis Pay JWT for the preview import.
+2. The server checks that the connected miniapp wallet matches the Gnosis Pay Safe, Safe owner, or authenticated wallet returned by the Gnosis Pay account APIs.
+3. Hootpot fetches `/api/v1/cards/transactions`, keeps eligible `Payment` events, and stores them as `gnosis_pay` receipt tickets.
+4. Imported receipts enter the same cashback draw as Circles checkout receipts.
+
+This is useful for hackathon testing because it uses real Gnosis Pay card transaction metadata. It is not the desired consumer UX. A production integration should replace the pasted JWT with SIWE inside the miniapp or partner webhooks with Ed25519 signature verification.
+
+Relevant Gnosis Pay surfaces:
+
+- `GET /api/v1/cards/transactions` for card transaction history and merchant metadata.
+- `GET /api/v1/safe-config`, `GET /api/v1/user`, `GET /api/v1/eoa-accounts`, and `GET /api/v1/owners` for account/address checks.
+- Webhooks for production partner ingestion of `card.transaction.*` events.
+
 ## Live Demo Script
 
 The useful hackathon demo is the small real loop:
@@ -116,7 +135,7 @@ The useful hackathon demo is the small real loop:
 8. Pay the winner back from the Hootpot Safe or pool.
 9. Record the payout tx hash to mark the receipt as paid back.
 
-This proves the core mechanism with real Circles transactions. Gnosis Pay remains the extension path once an official receipt API or webhook is available.
+This proves the core mechanism with real Circles transactions. The Gnosis Pay import panel can additionally ingest real card transaction metadata for accounts that can provide a short-lived API JWT.
 
 ## Hackathon Contract Direction
 
@@ -194,9 +213,9 @@ Missing pieces:
 - Durable storage instead of the current prototype serverless ledger.
 - A continuous Circles event watcher instead of only verifying submitted tx hashes.
 - Production randomness, such as Chainlink VRF where supported or a stricter commit/reveal flow.
-- A Gnosis Pay API/webhook integration if card transactions should become eligible receipts.
+- A production Gnosis Pay integration if card transactions should become eligible receipts without a preview JWT import.
 
-The Gnosis Pay path is a future integration. Raw card settlement transactions alone do not expose clean merchant-level receipt context, so Hootpot would need official card transaction metadata or webhooks to make card purchases eligible.
+The Gnosis Pay path now has a prototype API importer. Raw card settlement transactions alone are still not enough for clean merchant-level receipt context, so the useful product path is official card transaction metadata, SIWE auth, or partner webhooks.
 
 See `docs/hootpot-contract-plan.md` for the safety model and upgrade path.
 
@@ -208,3 +227,4 @@ See `docs/hootpot-contract-plan.md` for the safety model and upgrade path.
 - Verify receipt amount from decoded event logs, not just the transfer reference.
 - Freeze ticket lists per round and publish draw proof.
 - Pay cashback recipients from the Hootpot org/Safe.
+- Replace the Gnosis Pay JWT preview with SIWE or verified partner webhooks.
