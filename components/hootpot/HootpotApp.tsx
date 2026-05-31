@@ -508,6 +508,9 @@ export function HootpotApp() {
     group?.configuredOpenService ?? "",
   );
   const openJoinEnabled = Boolean(group?.openJoinEnabled);
+  const isGroupOwnerConnected =
+    Boolean(address && group) &&
+    address?.toLowerCase() === group?.owner.toLowerCase();
   const isGroupOwnerOrServiceConnected =
     Boolean(address && group) &&
     (address?.toLowerCase() === group?.owner.toLowerCase() ||
@@ -557,8 +560,19 @@ export function HootpotApp() {
     Boolean(group) &&
     openJoinServiceConfigured &&
     !openJoinEnabled &&
-    address?.toLowerCase() === group?.owner.toLowerCase() &&
+    isGroupOwnerConnected &&
     !isEnablingOpenJoin;
+  const openJoinSetupHint = !group
+    ? "Group state is still loading."
+    : openJoinEnabled
+      ? "Open join is already enabled."
+      : !openJoinServiceConfigured
+        ? "The open join service address is not configured."
+        : !isConnected || !isMiniappHost
+          ? "Open Hootpot inside the Circles host with a connected account."
+          : !isGroupOwnerConnected
+            ? `Active account must be the HOOT owner Safe ${formatAddress(group.owner)}.`
+            : "Ready to enable open join.";
   const topUpTransferData = encodeHootpotTransferData(`hootpot:topup:${ROUND_ID}`);
   const normalizedTopUpAmount = normalizeAmount(topUpAmount);
   const topUpUrl =
@@ -1688,6 +1702,8 @@ export function HootpotApp() {
                             ? formatAddress(group?.configuredOpenService ?? null)
                             : "env required"}
                         </p>
+                        <p>Owner: {formatAddress(group?.owner ?? null)}</p>
+                        <p>Active: {formatAddress(address)}</p>
                         <p>Status: {openJoinEnabled ? "enabled" : "not enabled"}</p>
                       </div>
                       <Button
@@ -1699,6 +1715,9 @@ export function HootpotApp() {
                         <ShieldCheck className="size-4" />
                         {isEnablingOpenJoin ? "Submitting..." : "Enable Open Join"}
                       </Button>
+                      <p className="text-xs font-semibold leading-4 text-[#746b80]">
+                        {openJoinSetupHint}
+                      </p>
                     </div>
                     <div className="grid gap-3 rounded-[8px] border border-[#706095] bg-[#fffdf8] p-3 text-[#171428]">
                       <div className="flex gap-3">

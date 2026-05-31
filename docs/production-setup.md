@@ -126,6 +126,22 @@ https://hootpot.vercel.app/?operator=1
 Click `Enable Open Join`. After that, normal users can click `Join HOOT` in the
 miniapp before minting/supporting HOOT.
 
+If the Circles playground cannot select the owner Safe, execute the same action
+locally through the Safe with the Safe owner private key:
+
+```bash
+HOOTPOT_OWNER_SAFE=0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5 \
+HOOTPOT_GROUP=0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0 \
+HOOTPOT_OPEN_SERVICE=0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df \
+PRIVATE_KEY="$PRIVATE_KEY" \
+forge script script/EnableHootpotOpenJoinViaSafe.s.sol:EnableHootpotOpenJoinViaSafe \
+  --rpc-url "$GNOSIS_RPC_URL" \
+  --broadcast
+```
+
+This sends a transaction to the owner Safe, and the Safe calls
+`setService(0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df)` on the HOOT group.
+
 ### Gnosis Pay Webhooks
 
 Normally Hootpot fetches the Gnosis Pay webhook public key from:
