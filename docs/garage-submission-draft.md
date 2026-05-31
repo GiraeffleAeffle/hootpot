@@ -35,7 +35,7 @@ live prototype
 Short description:
 
 ```text
-Hootpot turns CRC merchant payments and Gnosis Pay card receipts into eligible receipts for a community-funded cashback pot. Users can support the HOOT Circles group, where starring the group routes 2 CRC/day into the Hootpot community loop; verified receipts can then be paid back by the pot.
+Hootpot turns CRC merchant payments and Gnosis Pay card receipts into eligible receipts for a community-funded cashback pot. Users can support the HOOT Circles group from Circles Core, and verified receipts can then be paid back from the actual CRC balance held by the Hootpot Safe.
 ```
 
 ## 02 Contracts

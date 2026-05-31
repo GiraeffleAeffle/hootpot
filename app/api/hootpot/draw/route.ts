@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === "winner_missing_address") {
       return NextResponse.json({ error: "winner_missing_address" }, { status: 409 });
     }
+    if (error instanceof Error && error.message === "pot_empty") {
+      return NextResponse.json({ error: "pot_empty" }, { status: 409 });
+    }
     console.error("[hootpot] draw failed", error);
     return NextResponse.json({ error: "draw_failed" }, { status: 500 });
   }

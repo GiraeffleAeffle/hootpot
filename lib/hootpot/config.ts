@@ -9,9 +9,6 @@ export type HootpotMerchant = {
 export const ROUND_ID = "garage-cycle-02";
 export const DEFAULT_ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const DEFAULT_CHECKOUT_AMOUNT = "1";
-export const AFFILIATE_DRIP_CRC = 2;
-export const POT_SEED_CRC = 420;
-export const RECEIPT_BOOST_CRC = 12;
 export const MAX_CASHBACK_CRC = 50;
 
 export const POT_ADDRESS =

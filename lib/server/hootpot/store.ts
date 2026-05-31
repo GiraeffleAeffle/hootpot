@@ -4,15 +4,16 @@ import os from "node:os";
 import path from "node:path";
 
 import {
-  AFFILIATE_DRIP_CRC,
   cashbackForAmount,
   DEFAULT_ZERO_ADDRESS,
   MERCHANTS,
-  POT_SEED_CRC,
-  RECEIPT_BOOST_CRC,
   ROUND_ID,
   type HootpotMerchant,
 } from "@/lib/hootpot/config";
+import {
+  getConfiguredPotBalanceCrc,
+  normalizeCrcNumber,
+} from "@/lib/server/hootpot/potBalance";
 import {
   buildGnosisCrcTransferUrl,
   encodeHootpotTransferData,
@@ -321,14 +322,20 @@ export async function getHootpotState(): Promise<HootpotState> {
       ticket.status === "pending_payment" || ticket.status === "payment_submitted",
   );
   const activeDraw = ledger.draw?.roundId === ROUND_ID ? ledger.draw : null;
-  const potTotalCrc =
-    POT_SEED_CRC + 4 * AFFILIATE_DRIP_CRC + eligibleTickets.length * RECEIPT_BOOST_CRC;
+  const potTotalCrc = await getConfiguredPotBalanceCrc();
   const drawnWinner =
     activeDraw === null
       ? null
       : tickets.find((ticket) => ticket.ticketId === activeDraw.winnerTicketId) ?? null;
   const winnerTicket = drawnWinner ?? selectWinner(eligibleTickets);
-  const availableCashbackCrc = winnerTicket ? cashbackForAmount(winnerTicket.amount) : 0;
+  const availableCashbackCrc =
+    activeDraw !== null
+      ? normalizeCrcNumber(Number(activeDraw.payoutAmount))
+      : winnerTicket
+        ? normalizeCrcNumber(
+            Math.min(cashbackForAmount(winnerTicket.amount), potTotalCrc),
+          )
+        : 0;
 
   return {
     roundId: ROUND_ID,
@@ -529,6 +536,11 @@ export async function drawHootpotRound(input: {
     throw new Error("no_eligible_tickets");
   }
 
+  const potTotalCrc = await getConfiguredPotBalanceCrc();
+  if (potTotalCrc <= 0) {
+    throw new Error("pot_empty");
+  }
+
   const seed =
     input.seed?.trim() ||
     `0x${randomBytes(32).toString("hex")}`;
@@ -536,13 +548,19 @@ export async function drawHootpotRound(input: {
   if (!winner?.participantAddress) {
     throw new Error("winner_missing_address");
   }
+  const payoutAmount = normalizeCrcNumber(
+    Math.min(cashbackForAmount(winner.amount), potTotalCrc),
+  );
+  if (payoutAmount <= 0) {
+    throw new Error("pot_empty");
+  }
 
   const draw: HootpotDraw = {
     roundId: ROUND_ID,
     seed,
     winnerTicketId: winner.ticketId,
     winnerAddress: winner.participantAddress,
-    payoutAmount: winner.cashbackAmount,
+    payoutAmount: String(payoutAmount),
     drawnAt: new Date().toISOString(),
   };
 

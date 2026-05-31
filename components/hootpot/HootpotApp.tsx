@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWallet } from "@/hooks/use-wallet";
 import {
-  AFFILIATE_DRIP_CRC,
   cashbackForAmount,
   DEFAULT_CHECKOUT_AMOUNT,
   formatAddress,
@@ -39,8 +38,6 @@ import {
   normalizeAmount,
   POOL_ADDRESS,
   POT_ADDRESS,
-  POT_SEED_CRC,
-  RECEIPT_BOOST_CRC,
   REGISTRY_ADDRESS,
   ROUND_ID,
 } from "@/lib/hootpot/config";
@@ -162,9 +159,15 @@ function statusLabel(status: TicketStatus): string {
   return "waiting";
 }
 
-function winnerCopy(ticket: HootpotTicket | null): string {
+function winnerCopy(
+  ticket: HootpotTicket | null,
+  availableCashbackCrc: number,
+): string {
   if (!ticket) return "No eligible receipts yet.";
-  return `${ticket.merchantName} receipt can get ${cashbackForAmount(ticket.amount)} CRC back.`;
+  if (availableCashbackCrc <= 0) {
+    return `${ticket.merchantName} receipt is eligible once the pot is funded.`;
+  }
+  return `${ticket.merchantName} receipt can get ${formatCrcAmount(availableCashbackCrc)} CRC back.`;
 }
 
 function ticketSourceLabel(ticket: HootpotTicket): string {
@@ -178,13 +181,17 @@ function ticketAmountLabel(ticket: HootpotTicket): string {
   return `${ticket.amount} CRC`;
 }
 
-function formatCrcBalance(value: string | null | undefined): string {
-  if (!value) return "0 CRC";
+function formatCrcAmount(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "0";
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return `${value} CRC`;
-  return `${new Intl.NumberFormat("en", {
+  if (!Number.isFinite(parsed)) return String(value);
+  return new Intl.NumberFormat("en", {
     maximumFractionDigits: 2,
-  }).format(parsed)} CRC`;
+  }).format(parsed);
+}
+
+function formatCrcBalance(value: string | number | null | undefined): string {
+  return `${formatCrcAmount(value)} CRC`;
 }
 
 function avatarTypeLabel(type?: string): string {
@@ -341,7 +348,7 @@ export function HootpotApp() {
   const tickets = state?.tickets ?? EMPTY_TICKETS;
   const eligibleTickets = state?.eligibleTickets ?? EMPTY_TICKETS;
   const pendingTickets = state?.pendingTickets ?? EMPTY_TICKETS;
-  const potTotal = state?.potTotalCrc ?? POT_SEED_CRC + 4 * AFFILIATE_DRIP_CRC;
+  const potTotal = state?.potTotalCrc ?? 0;
   const winnerTicket = state?.winnerTicket ?? null;
   const availableCashback = state?.availableCashbackCrc ?? 0;
   const draw = state?.draw ?? null;
@@ -608,7 +615,11 @@ export function HootpotApp() {
         error?: string;
       };
       if (!response.ok || !payload.state) {
-        throw new Error(payload.error ?? "Could not draw a winner.");
+        throw new Error(
+          payload.error === "pot_empty"
+            ? "Fund the Hootpot Safe before drawing cashback."
+            : payload.error ?? "Could not draw a winner.",
+        );
       }
       setState(payload.state);
       setMessage("Winner drawn. Pay the cashback from the Hootpot Safe, then record the tx.");
@@ -707,7 +718,7 @@ export function HootpotApp() {
                 {eligibleTickets.length} eligible receipts
               </Badge>
               <Badge className="rounded-[6px] bg-[#d8f36a] px-3 py-1 text-[#1f2a0a]">
-                {potTotal} CRC pot
+                {formatCrcBalance(potTotal)} pot
               </Badge>
               <Badge className="rounded-[6px] bg-[#e9e2ff] px-3 py-1 text-[#2a2064]">
                 cashback Sunday
@@ -790,9 +801,8 @@ export function HootpotApp() {
               </p>
               <h2 className="text-2xl font-black leading-tight">Join Hootpot</h2>
               <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
-                Star HOOT in Circles Core to route {AFFILIATE_DRIP_CRC} CRC/day
-                into the community pot. Group membership is invited by the
-                Hootpot Safe.
+                Support HOOT in Circles Core. The pot below only counts CRC that
+                has actually landed in the Hootpot Safe.
               </p>
               <p className="mt-2 font-mono text-xs font-bold text-[#746b80]">
                 {formatAddress(GROUP_ADDRESS)}
@@ -964,24 +974,29 @@ export function HootpotApp() {
             <CardContent className="grid gap-4">
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#c9c1dc]">
-                  Available pool
+                  Pot Safe balance
                 </p>
-                <p className="mt-1 text-5xl font-black">{potTotal} CRC</p>
+                <p className="mt-1 text-5xl font-black">
+                  {formatCrcBalance(potTotal)}
+                </p>
               </div>
               <div className="grid gap-2 text-sm">
-                <PotRow label="Seed pool" value={`${POT_SEED_CRC} CRC`} />
                 <PotRow
-                  label="Affiliate flow"
-                  value={`${4 * AFFILIATE_DRIP_CRC} CRC`}
+                  label="Pot Safe"
+                  value={potConfigured ? formatAddress(POT_ADDRESS) : "needs env"}
                 />
                 <PotRow
-                  label="Receipt boosts"
-                  value={`${eligibleTickets.length * RECEIPT_BOOST_CRC} CRC`}
+                  label="Actual balance"
+                  value={formatCrcBalance(potTotal)}
+                />
+                <PotRow
+                  label="Max receipt payback"
+                  value={`${MAX_CASHBACK_CRC} CRC`}
                 />
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-semibold">
-                  Fund Hootpot
+                  Fund Hootpot Safe
                   <div className="mt-2 flex h-10 overflow-hidden rounded-[8px] border border-[#706095] bg-[#fffdf8] text-[#171428]">
                     <input
                       value={topUpAmount}
@@ -1004,7 +1019,7 @@ export function HootpotApp() {
                       "pointer-events-none opacity-50",
                   )}
                 >
-                  Fund Pot
+                  Send CRC to Pot
                   <ArrowRight className="size-4" />
                 </a>
               </div>
@@ -1217,7 +1232,10 @@ export function HootpotApp() {
               <div className="grid grid-cols-3 gap-2">
                 <DrawMetric label="Eligible" value={`${eligibleTickets.length}`} />
                 <DrawMetric label="Pending" value={`${pendingTickets.length}`} />
-                <DrawMetric label="Back" value={`${availableCashback}`} />
+                <DrawMetric
+                  label="Payback"
+                  value={formatCrcBalance(availableCashback)}
+                />
               </div>
               <div className="rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3">
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
@@ -1229,7 +1247,7 @@ export function HootpotApp() {
                       {winnerTicket.merchantName}
                     </p>
                     <p className="text-sm text-[#746b80]">
-                      {winnerCopy(winnerTicket)}
+                      {winnerCopy(winnerTicket, availableCashback)}
                     </p>
                   </>
                 ) : (
@@ -1273,7 +1291,7 @@ export function HootpotApp() {
                     </>
                   ) : (
                     <p className="mt-2 text-sm font-semibold text-[#746b80]">
-                      Draw after at least one receipt is eligible.
+                      Draw after at least one receipt is eligible and the pot has CRC.
                     </p>
                   )}
                 </div>
@@ -1309,7 +1327,11 @@ export function HootpotApp() {
                 ) : (
                   <Button
                     type="button"
-                    disabled={isDrawing || eligibleTickets.length === 0}
+                    disabled={
+                      isDrawing ||
+                      eligibleTickets.length === 0 ||
+                      availableCashback <= 0
+                    }
                     onClick={drawRound}
                     className="h-10 rounded-[8px] bg-[#251d3f] text-[#fffdf8] hover:bg-[#382b66]"
                   >
@@ -1324,8 +1346,8 @@ export function HootpotApp() {
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <InfoPanel
-            title="Affiliate Group"
-            body={`Star HOOT to route ${AFFILIATE_DRIP_CRC} CRC/day into the community pot.`}
+            title="HOOT Support Group"
+            body="Support HOOT in Circles Core. The cashback pot is the real CRC balance of the Hootpot Safe."
             action={
               GROUP_URL ? (
                 <a

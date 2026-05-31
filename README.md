@@ -4,11 +4,11 @@ Hootpot is a Circles miniapp for community-funded receipt cashback.
 
 The first version connects three Circles-native loops:
 
-- Affiliate flow: users can support the Hootpot group, routing 2 CRC/day from their daily Circles creation.
+- HOOT support group: users can support the Hootpot group from Circles Core.
 - Merchant receipts: a CRC checkout intent creates a receipt ticket for weekly cashback.
 - Pot top-ups: sponsors or merchants can add CRC to the operational pot wallet.
 
-The merchant payment goes to the merchant. Hootpot uses the verified receipt as eligibility, while cashback is funded separately by group flow, merchant boosts, and sponsor top-ups.
+The merchant payment goes to the merchant. Hootpot uses the verified receipt as eligibility, while cashback is funded only by the current CRC balance of the configured Hootpot Safe.
 
 ## Current Scope
 
@@ -23,7 +23,7 @@ The merchant payment goes to the merchant. Hootpot uses the verified receipt as 
 - Merchant registry, prize pool, and receipt/draw registry contracts
 - Gnosis Pay SIWE sync and signed webhook ingestion as external receipt sources
 - Durable ledger support through Vercel KV / Upstash Redis REST, with local file fallback
-- Pot top-up transfer link
+- Pot Safe balance lookup and top-up transfer link
 - Weekly cashback preview with deterministic ticket selection
 
 ## Run
