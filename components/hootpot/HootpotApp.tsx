@@ -245,6 +245,25 @@ function formatAttoCrc(value: string | null | undefined): string {
   }
 }
 
+function formatAttoCrcInput(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const atto = BigInt(value);
+    if (atto <= BigInt(0)) return null;
+    const attoPerCrc = BigInt("1000000000000000000");
+    const whole = atto / attoPerCrc;
+    const fractional = atto % attoPerCrc;
+    const decimals = fractional
+      .toString()
+      .padStart(18, "0")
+      .slice(0, 6)
+      .replace(/0+$/, "");
+    return decimals ? `${whole}.${decimals}` : whole.toString();
+  } catch {
+    return null;
+  }
+}
+
 function isPositiveAtto(value: string | null | undefined): boolean {
   if (!value) return false;
   try {
@@ -547,7 +566,7 @@ export function HootpotApp() {
     hasHootMintPath &&
     requestedSupportAtto !== null &&
     BigInt(supportState?.maxMintableAtto ?? "0") >= requestedSupportAtto;
-  const normalizedDonationAmount = normalizeAmount(donationAmount);
+  const normalizedDonationAmount = normalizeAmount(donationAmount, 6);
   const requestedDonationAtto = crcStringToAtto(normalizedDonationAmount);
   const canDonateHoot =
     isConnected &&
@@ -557,7 +576,10 @@ export function HootpotApp() {
     Boolean(normalizedDonationAmount) &&
     isAttoAtLeast(supportState?.groupTokenBalanceAtto, requestedDonationAtto) &&
     !isDonatingHoot;
-  const normalizedRedeemAmount = normalizeAmount(redeemAmount);
+  const normalizedRedeemAmount = normalizeAmount(redeemAmount, 6);
+  const maxRedeemableAmount = formatAttoCrcInput(
+    supportState?.potMaxRedeemableAtto,
+  );
   const requestedRedeemAtto = crcStringToAtto(normalizedRedeemAmount);
   const normalizedTrustedSenderAddress = trustedSenderAddress.trim();
   const normalizedGroupMemberAddress = groupMemberAddress.trim();
@@ -1021,7 +1043,7 @@ export function HootpotApp() {
   }
 
   async function donateHootToPot() {
-    const normalized = normalizeAmount(donationAmount);
+    const normalized = normalizeAmount(donationAmount, 6);
     if (!address || !isConnected || !isMiniappHost) {
       setError("Open Hootpot inside the Circles host with a connected wallet.");
       return;
@@ -1076,7 +1098,7 @@ export function HootpotApp() {
   }
 
   async function redeemHootForCashback() {
-    const normalized = normalizeAmount(redeemAmount);
+    const normalized = normalizeAmount(redeemAmount, 6);
     if (!address || !isConnected || !isMiniappHost) {
       setError("Open Hootpot inside the Circles host and select the Hootpot Safe.");
       return;
@@ -1115,7 +1137,7 @@ export function HootpotApp() {
             : txPayload.error === "no_redeemable_collateral_trust"
               ? "The Safe does not trust the collateral avatar backing HOOT yet. Trust the donor account, wait for indexing, then redeem."
               : txPayload.error === "no_group_redeem_path"
-                ? "No redemption path is indexed yet. Trust the donor account from the Safe, wait for indexing, then try again."
+                ? `No redemption path is indexed for that amount. Try ${maxRedeemableAmount ?? "a slightly smaller amount"} or wait for Circles indexing.`
                 : txPayload.error === "pot_owner_required"
                   ? "The active Circles account must be the Hootpot Safe."
                   : txPayload.error ?? "Could not build the HOOT redemption transaction.";
@@ -1973,6 +1995,15 @@ export function HootpotApp() {
                           inputMode="decimal"
                           className="min-w-0 flex-1 px-3 font-bold outline-none"
                         />
+                        {maxRedeemableAmount ? (
+                          <button
+                            type="button"
+                            onClick={() => setRedeemAmount(maxRedeemableAmount)}
+                            className="border-l border-[#d8cfbe] px-3 text-xs font-black uppercase tracking-[0.08em] text-[#251d3f]"
+                          >
+                            Max
+                          </button>
+                        ) : null}
                         <span className="flex items-center border-l border-[#d8cfbe] px-3 text-sm font-black text-[#746b80]">
                           HOOT
                         </span>
@@ -1992,7 +2023,7 @@ export function HootpotApp() {
                     </Button>
                     <p className="text-xs font-semibold leading-4 text-[#c9c1dc]">
                       {isPotOwnerConnected
-                        ? `Safe can redeem ${formatAttoCrc(supportState?.potMaxRedeemableAtto)} CRC after collateral trust is indexed.`
+                        ? `Safe can redeem ${maxRedeemableAmount ?? "0"} CRC after collateral trust is indexed.`
                         : `Select the Hootpot Safe ${formatAddress(POT_ADDRESS)} to redeem.`}
                     </p>
                     {!isPotOwnerConnected ? (

@@ -96,6 +96,12 @@ Users can star the HOOT group without this, but they need the open service for
 self-serve group membership and mint/support HOOT. The service is currently
 enabled on the HOOT group.
 
+Group join/star route:
+
+```text
+https://app.gnosis.io/0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0
+```
+
 Current deployed open service:
 
 ```text

@@ -332,11 +332,15 @@ by the Hootpot Safe:
 
 ```bash
 HOOTPOT_SAFE=0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5 \
-HOOTPOT_REDEEM_AMOUNT=1 \
+HOOTPOT_REDEEM_AMOUNT=0.999999 \
 PRIVATE_KEY="$PRIVATE_KEY" \
 GNOSIS_RPC_URL="$GNOSIS_RPC_URL" \
 node scripts/redeem-hoot-via-safe.mjs
 ```
+
+Circles pathfinder can expose a slightly smaller max redemption than the visible
+HOOT balance because of indexer/path precision. The helper defaults to
+`0.999999` and retries with the indexed max when an exact amount is too high.
 
 Changing `HOOTPOT_ADMIN_SECRET` or using a normal user account does not grant
 custody over the Safe's HOOT. To operate fully in-app, use a pot address that

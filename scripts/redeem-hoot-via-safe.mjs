@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 
 const appUrl = process.env.HOOTPOT_APP_URL ?? "https://hootpot.vercel.app";
 const safe = process.env.HOOTPOT_SAFE;
-const amount = process.env.HOOTPOT_REDEEM_AMOUNT ?? "1";
+const amount = process.env.HOOTPOT_REDEEM_AMOUNT ?? "0.999999";
 const rpcUrl = process.env.GNOSIS_RPC_URL ?? "https://rpc.gnosischain.com";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ATTO_PER_CRC = BigInt("1000000000000000000");
 
 if (!safe) {
   console.error("Set HOOTPOT_SAFE to the Hootpot Safe address.");
@@ -19,12 +20,64 @@ if (!process.env.PRIVATE_KEY) {
   process.exit(1);
 }
 
-const response = await fetch(`${appUrl}/api/hootpot/group/redeem/transactions`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ operatorAddress: safe, amount }),
-});
-const payload = await response.json();
+function decimalToAtto(value) {
+  const [whole, fractional = ""] = value.split(".");
+  return (
+    BigInt(whole) * ATTO_PER_CRC +
+    BigInt(fractional.padEnd(18, "0").slice(0, 18) || "0")
+  );
+}
+
+function attoToDecimal(value, maxDecimals = 6) {
+  const atto = BigInt(value);
+  if (atto <= BigInt(0)) return null;
+  const whole = atto / ATTO_PER_CRC;
+  const fractional = atto % ATTO_PER_CRC;
+  const decimals = fractional
+    .toString()
+    .padStart(18, "0")
+    .slice(0, maxDecimals)
+    .replace(/0+$/, "");
+  return decimals ? `${whole}.${decimals}` : whole.toString();
+}
+
+async function readJson(response) {
+  return response.json().catch(() => ({}));
+}
+
+async function buildRedemptionTransactions(redeemAmount) {
+  const response = await fetch(`${appUrl}/api/hootpot/group/redeem/transactions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ operatorAddress: safe, amount: redeemAmount }),
+  });
+  const payload = await readJson(response);
+  return { response, payload };
+}
+
+async function loadIndexedMaxRedeemableAmount() {
+  const url = new URL("/api/hootpot/group/support/state", appUrl);
+  url.searchParams.set("participantAddress", safe);
+  const response = await fetch(url);
+  const payload = await readJson(response);
+  if (!response.ok) return null;
+  const maxAtto = payload.support?.potMaxRedeemableAtto;
+  return typeof maxAtto === "string" ? attoToDecimal(maxAtto, 6) : null;
+}
+
+let usedAmount = amount;
+let { response, payload } = await buildRedemptionTransactions(usedAmount);
+
+if (!response.ok && payload.error === "no_group_redeem_path") {
+  const maxAmount = await loadIndexedMaxRedeemableAmount();
+  if (maxAmount && decimalToAtto(maxAmount) < decimalToAtto(usedAmount)) {
+    console.error(
+      `No redeem path for ${usedAmount} HOOT. Retrying with indexed max ${maxAmount} HOOT.`,
+    );
+    usedAmount = maxAmount;
+    ({ response, payload } = await buildRedemptionTransactions(usedAmount));
+  }
+}
 
 if (!response.ok || !Array.isArray(payload.transactions)) {
   console.error(
@@ -33,6 +86,11 @@ if (!response.ok || !Array.isArray(payload.transactions)) {
   if (payload.error === "no_redeemable_collateral_trust") {
     console.error(
       "First run TrustHootpotCollateralViaSafe for the donor/collateral avatar.",
+    );
+  }
+  if (payload.error === "no_group_redeem_path") {
+    console.error(
+      "Try a slightly smaller amount such as 0.999999, or wait for Circles pathfinder indexing.",
     );
   }
   process.exit(1);
@@ -73,4 +131,4 @@ for (const [index, transaction] of payload.transactions.entries()) {
   }
 }
 
-console.log(`Redeemed ${amount} HOOT through ${safe}.`);
+console.log(`Redeemed ${usedAmount} HOOT through ${safe}.`);

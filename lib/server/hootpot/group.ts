@@ -318,7 +318,7 @@ export async function buildGroupFundTransactions(input: {
   if (!isConfiguredAddress(input.participantAddress)) {
     throw new Error("participant_required");
   }
-  const normalizedAmount = normalizeAmount(input.amount);
+  const normalizedAmount = normalizeAmount(input.amount, 6);
   if (!normalizedAmount) {
     throw new Error("invalid_amount");
   }
@@ -361,7 +361,7 @@ export async function buildGroupDonationTransactions(input: {
   if (!isConfiguredAddress(input.participantAddress)) {
     throw new Error("participant_required");
   }
-  const normalizedAmount = normalizeAmount(input.amount);
+  const normalizedAmount = normalizeAmount(input.amount, 6);
   if (!normalizedAmount) {
     throw new Error("invalid_amount");
   }
@@ -408,7 +408,7 @@ export async function buildGroupRedeemTransactions(input: {
   if (input.operatorAddress.toLowerCase() !== POT_ADDRESS.toLowerCase()) {
     throw new Error("pot_owner_required");
   }
-  const normalizedAmount = normalizeAmount(input.amount);
+  const normalizedAmount = normalizeAmount(input.amount, 6);
   if (!normalizedAmount) {
     throw new Error("invalid_amount");
   }

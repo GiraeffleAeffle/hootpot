@@ -24,7 +24,7 @@ export const GROUP_OPEN_SERVICE_ADDRESS =
 
 export const GROUP_URL =
   process.env.NEXT_PUBLIC_HOOTPOT_GROUP_URL ??
-  `https://app.aboutcircles.com/groups/members/${GROUP_ADDRESS}`;
+  `https://app.gnosis.io/${GROUP_ADDRESS}`;
 
 export const GROUP_METRICS_URL =
   process.env.NEXT_PUBLIC_HOOTPOT_GROUP_METRICS_URL ??
@@ -79,10 +79,15 @@ export function isConfiguredAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address) && !/^0x0{40}$/i.test(address);
 }
 
-export function normalizeAmount(value: string | number): string | null {
+export function normalizeAmount(
+  value: string | number,
+  maxDecimals = 2,
+): string | null {
   const raw = typeof value === "number" ? String(value) : value.trim();
   const normalized = raw.replace(",", ".");
-  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+  const decimals = Math.max(0, Math.min(maxDecimals, 18));
+  const pattern = new RegExp(`^\\d+(\\.\\d{1,${decimals}})?$`);
+  if (!pattern.test(normalized)) return null;
   if (Number(normalized) <= 0) return null;
   return normalized;
 }

@@ -123,7 +123,7 @@ Hootpot group:
 ```text
 HOOT Circles group: 0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0
 Group metrics: https://app.aboutcircles.com/groups/metrics/0xa31676f40eed5ea91664ab0ac188c48f6ccb54c0
-Group members/support route: https://app.aboutcircles.com/groups/members/0xa31676f40eed5ea91664ab0ac188c48f6ccb54c0
+Group join/star route: https://app.gnosis.io/0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0
 Owner Safe: 0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5
 Open join service: 0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
 Mint handler: 0xBF7D36C8292Eef10105b14E981FDB2AEc2363823
@@ -188,6 +188,6 @@ What I would need to make this useful in the real world:
 
 Live app: https://hootpot.vercel.app
 Repo: https://github.com/GiraeffleAeffle/hootpot
-HOOT group: https://app.aboutcircles.com/groups/metrics/0xa31676f40eed5ea91664ab0ac188c48f6ccb54c0
+HOOT group: https://app.gnosis.io/0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0
 Contracts are deployed on Gnosis Chain.
 ```
