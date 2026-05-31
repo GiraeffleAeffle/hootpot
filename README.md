@@ -19,10 +19,10 @@ The merchant payment goes to the merchant. Hootpot uses the verified receipt as 
 - Host wallet submission through `sendTransactions`
 - On-chain transaction hash verification for Hootpot receipt references
 - Preconfigured merchant payout addresses, no shopper address entry
-- Operator draw and payout-recording flow for the live demo loop
+- Admin-protected operator draw and payout-recording flow
 - Merchant registry, prize pool, and receipt/draw registry contracts
-- Gnosis Pay card transaction import as an external receipt source
-- Server-backed receipt/ticket ledger in `.data/hootpot-ledger.json`
+- Gnosis Pay SIWE sync and signed webhook ingestion as external receipt sources
+- Durable ledger support through Vercel KV / Upstash Redis REST, with local file fallback
 - Pot top-up transfer link
 - Weekly cashback preview with deterministic ticket selection
 
@@ -58,11 +58,17 @@ NEXT_PUBLIC_HOOTPOT_MERCHANT_TWO=
 NEXT_PUBLIC_HOOTPOT_MERCHANT_THREE=
 GNOSIS_RPC_URL=
 GNOSIS_PAY_API_BASE_URL=
+GNOSIS_PAY_WEBHOOK_PUBLIC_KEY=
+GNOSIS_PAY_WEBHOOK_PUBLIC_KEY_URL=
+HOOTPOT_ADMIN_SECRET=
+KV_REST_API_URL=
+KV_REST_API_TOKEN=
+HOOTPOT_LEDGER_KEY=
 ```
 
 Without configured addresses, payment and top-up links stay guarded in the UI.
 
-For the hackathon demo, merchant payout addresses should be preconfigured before the app is shown. A shopper should only choose a merchant, pay, and see the receipt enter the Hootpot round.
+Merchant payout addresses should be preconfigured before the app is shown. A shopper should only choose a merchant, pay, and see the receipt enter the Hootpot round.
 
 ## Deploying for Playground Tests
 
@@ -79,14 +85,7 @@ https://hootpot.vercel.app
 https://circles.gnosis.io/playground?url=https://hootpot.vercel.app
 ```
 
-Latest real-checkout preview:
-
-```text
-https://hootpot-pt95md22l-giraeffleaeffles-projects.vercel.app
-https://circles.gnosis.io/playground?url=https://hootpot-pt95md22l-giraeffleaeffles-projects.vercel.app
-```
-
-The current ledger is prototype storage. Locally it writes to `.data/`; on Vercel it writes to `/tmp/hootpot` so serverless functions can run, but that storage is not durable. For a real public round, replace the ledger with a durable store such as Vercel KV/Postgres or an on-chain watcher-backed API.
+Ledger storage uses Vercel KV / Upstash Redis REST when `KV_REST_API_URL` and `KV_REST_API_TOKEN` are configured. Without those env vars it falls back to `.data/` locally and `/tmp/hootpot` on Vercel, which is only suitable for local development.
 
 ## Cashback Model
 
@@ -104,26 +103,41 @@ The first shippable model is deliberately simple:
 
 This avoids split payments in the checkout path: the merchant gets paid immediately, and Hootpot only handles the later cashback.
 
-## Gnosis Pay Receipt Import
+## Gnosis Pay Receipt Ingestion
 
-Hootpot can also import recent card receipts from the Gnosis Pay API:
+Hootpot supports two real Gnosis Pay receipt paths.
 
-1. The connected wallet provides a short-lived Gnosis Pay JWT for the preview import.
-2. The server checks that the connected miniapp wallet matches the Gnosis Pay Safe, Safe owner, or authenticated wallet returned by the Gnosis Pay account APIs.
-3. Hootpot fetches `/api/v1/cards/transactions`, keeps eligible `Payment` events, and stores them as `gnosis_pay` receipt tickets.
-4. Imported receipts enter the same cashback draw as Circles checkout receipts.
+User-initiated SIWE sync:
 
-This is useful for hackathon testing because it uses real Gnosis Pay card transaction metadata. It is not the desired consumer UX. A production integration should replace the pasted JWT with SIWE inside the miniapp or partner webhooks with Ed25519 signature verification.
+1. The app requests a nonce from `GET /api/v1/auth/nonce`.
+2. The Circles host wallet signs a standard SIWE message through `signMessage`.
+3. The server exchanges the signed SIWE message at `POST /api/v1/auth/challenge`.
+4. The server checks that the connected wallet matches the Gnosis Pay Safe, Safe owner, or authenticated wallet returned by the Gnosis Pay account APIs.
+5. Hootpot fetches `/api/v1/cards/transactions`, keeps eligible `Payment` events, and stores them as `gnosis_pay` receipt tickets.
+
+Partner webhook ingestion:
+
+1. Gnosis Pay posts `card.transaction.*` events to `/api/hootpot/gnosis-pay/webhook`.
+2. Hootpot verifies `X-Webhook-Timestamp` and `X-Webhook-Signature` with the Ed25519 public key from Gnosis Pay.
+3. Hootpot maps the webhook's Safe/sign-in wallet and card transaction event into the same receipt ledger.
+4. Duplicate webhook deliveries are idempotent because tickets are keyed by source and external receipt id.
+
+The production webhook URL is:
+
+```text
+https://hootpot.vercel.app/api/hootpot/gnosis-pay/webhook
+```
 
 Relevant Gnosis Pay surfaces:
 
+- `GET /api/v1/auth/nonce` and `POST /api/v1/auth/challenge` for SIWE sessions.
 - `GET /api/v1/cards/transactions` for card transaction history and merchant metadata.
 - `GET /api/v1/safe-config`, `GET /api/v1/user`, `GET /api/v1/eoa-accounts`, and `GET /api/v1/owners` for account/address checks.
-- Webhooks for production partner ingestion of `card.transaction.*` events.
+- `card.transaction.created`, `card.transaction.cleared`, and `card.transaction.confirmed` webhooks for partner ingestion.
 
-## Live Demo Script
+## Operating Flow
 
-The useful hackathon demo is the small real loop:
+The end-to-end live loop is:
 
 1. Open Hootpot in the Circles playground.
 2. Pick a preconfigured merchant.
@@ -135,11 +149,11 @@ The useful hackathon demo is the small real loop:
 8. Pay the winner back from the Hootpot Safe or pool.
 9. Record the payout tx hash to mark the receipt as paid back.
 
-This proves the core mechanism with real Circles transactions. The Gnosis Pay import panel can additionally ingest real card transaction metadata for accounts that can provide a short-lived API JWT.
+This proves the core mechanism with real Circles transactions. The Gnosis Pay sync button can additionally ingest real card transaction metadata through SIWE without exposing access tokens to the browser.
 
-## Hackathon Contract Direction
+## Contract Direction
 
-The proposed hackathon contract surface is split into three small pieces:
+The current contract surface is split into three small pieces:
 
 - `contracts/HootpotMerchantRegistry.sol` stores allowed merchant payout addresses.
 - `contracts/HootpotPrizePool.sol` can be funded and can send non-CRC prize payouts.
@@ -169,7 +183,7 @@ forge script script/DeployHootpot.s.sol:DeployHootpot \
 Use a real owner address, ideally a Safe. Do not set `HOOTPOT_OWNER` to
 `0x0000000000000000000000000000000000000000`: the contracts reject a zero owner
 because merchant setup, receipt registration, round closing, and prize payouts all
-need an operator for the prototype.
+need an operator in the current deployment.
 
 After deployment, set these public app env vars and redeploy:
 
@@ -189,10 +203,10 @@ Deployed on Gnosis Chain at block `46439728`:
 Winner selection:
 
 ```text
-The current demo contract does not use Chainlink VRF. HootpotReceiptRegistry closes a round against a future Gnosis block and derives the winner from that block hash. That is transparent and prevents the owner from choosing the seed, but it is not oracle-grade randomness. For production, replace this with Chainlink VRF where supported or a stricter commit/reveal/randomness flow.
+The current receipt registry does not use Chainlink VRF. HootpotReceiptRegistry closes a round against a future Gnosis block and derives the winner from that block hash. That is transparent and prevents the owner from choosing the seed, but it is not oracle-grade randomness. For production, replace this with Chainlink VRF where supported or a stricter commit/reveal/randomness flow.
 ```
 
-The safest demo flow is:
+The safe operating flow is:
 
 1. Payer pays a configured merchant through the Circles host.
 2. Backend verifies the receipt reference on Gnosis Chain.
@@ -200,31 +214,31 @@ The safest demo flow is:
 4. Registry closes the round against a future Gnosis block and derives the winner from that block hash.
 5. Hootpot Safe sends the cashback and records the payout tx hash.
 
-Gnosis Pay can be added later as another receipt source through an official API or webhook. Raw card settlement transactions alone are not enough for a clean merchant-level Hootpot receipt, so the current app labels that path as a future extension.
+Gnosis Pay card transactions are supported as another receipt source through SIWE sync and the signed webhook endpoint. Raw card settlement transactions alone are not enough for a clean merchant-level Hootpot receipt, so Hootpot relies on official Gnosis Pay transaction metadata.
 
 ## Current Limitations
 
-Hootpot is a hackathon prototype, not a live merchant product yet. The deployed app and contracts prove the receipt/cashback mechanism, but ordinary users cannot use it meaningfully until real merchant and payout infrastructure exists.
+Hootpot is not a live merchant product until real merchant and payout infrastructure exists. The deployed app and contracts now have production-shaped ingestion and operator security boundaries, but the external network still has to be configured.
 
 Missing pieces:
 
 - Real Circles merchant onboarding or an official merchant directory / payout address registry.
 - A Hootpot Circles group/org/Safe that can receive and distribute CRC.
-- Durable storage instead of the current prototype serverless ledger.
+- A configured durable store, preferably Vercel KV / Upstash Redis via `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
 - A continuous Circles event watcher instead of only verifying submitted tx hashes.
 - Production randomness, such as Chainlink VRF where supported or a stricter commit/reveal flow.
-- A production Gnosis Pay integration if card transactions should become eligible receipts without a preview JWT import.
+- Gnosis Pay partner domain/webhook registration for continuous card receipt ingestion.
 
-The Gnosis Pay path now has a prototype API importer. Raw card settlement transactions alone are still not enough for clean merchant-level receipt context, so the useful product path is official card transaction metadata, SIWE auth, or partner webhooks.
+Raw card settlement transactions alone are still not enough for clean merchant-level receipt context. Hootpot uses official card transaction metadata from SIWE-authenticated API calls or signed partner webhooks.
 
 See `docs/hootpot-contract-plan.md` for the safety model and upgrade path.
 
 ## Next Production Slice
 
-- Configure a real merchant recipient and Hootpot pot address for a complete live Circles checkout demo.
-- Replace `/tmp` prototype storage with durable storage.
+- Configure a real merchant recipient and Hootpot pot address for a complete live Circles checkout flow.
+- Configure `KV_REST_API_URL` and `KV_REST_API_TOKEN` in Vercel.
 - Watch `CrcV2_TransferData` events continuously instead of only verifying submitted hashes.
 - Verify receipt amount from decoded event logs, not just the transfer reference.
 - Freeze ticket lists per round and publish draw proof.
 - Pay cashback recipients from the Hootpot org/Safe.
-- Replace the Gnosis Pay JWT preview with SIWE or verified partner webhooks.
+- Register `hootpot.vercel.app` and the webhook endpoint with Gnosis Pay partner settings.

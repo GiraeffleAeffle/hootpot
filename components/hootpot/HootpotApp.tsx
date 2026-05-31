@@ -232,7 +232,7 @@ export function HootpotApp() {
   const [selectedMerchantId, setSelectedMerchantId] = useState(MERCHANTS[0].id);
   const [amount, setAmount] = useState(DEFAULT_CHECKOUT_AMOUNT);
   const [topUpAmount, setTopUpAmount] = useState("25");
-  const [gnosisPayToken, setGnosisPayToken] = useState("");
+  const [operatorSecret, setOperatorSecret] = useState("");
   const [payoutTxHash, setPayoutTxHash] = useState("");
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -241,7 +241,7 @@ export function HootpotApp() {
   const [isCreating, setIsCreating] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isImportingGnosisPay, setIsImportingGnosisPay] = useState(false);
+  const [isSyncingGnosisPay, setIsSyncingGnosisPay] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isRecordingPayout, setIsRecordingPayout] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -399,25 +399,67 @@ export function HootpotApp() {
     }
   }
 
-  async function importGnosisPayReceipts() {
+  function jsonHeaders(extra: Record<string, string> = {}): HeadersInit {
+    const trimmedOperatorSecret = operatorSecret.trim();
+    return {
+      "Content-Type": "application/json",
+      ...(trimmedOperatorSecret
+        ? { "X-Hootpot-Admin-Secret": trimmedOperatorSecret }
+        : {}),
+      ...extra,
+    };
+  }
+
+  async function syncGnosisPayReceipts() {
     if (!address || !isConnected) {
       setError("Connect the Gnosis/Circles account that owns the card receipts.");
       return;
     }
-    const token = gnosisPayToken.trim();
-    if (!token || isImportingGnosisPay) return;
+    if (!isMiniappHost) {
+      setError("Gnosis Pay sync needs the Circles host wallet signature flow.");
+      return;
+    }
+    if (isSyncingGnosisPay) return;
 
-    setIsImportingGnosisPay(true);
+    setIsSyncingGnosisPay(true);
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch("/api/hootpot/gnosis-pay/import", {
+      const sessionResponse = await fetch("/api/hootpot/gnosis-pay/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          accessToken: token,
           participantAddress: address,
-          limit: 25,
+        }),
+      });
+      const sessionPayload = (await sessionResponse.json()) as {
+        ok?: boolean;
+        message?: string;
+        signatureType?: "erc1271" | "raw";
+        error?: string;
+        detail?: string;
+      };
+      if (!sessionResponse.ok || !sessionPayload.message) {
+        throw new Error(
+          sessionPayload.detail ??
+            sessionPayload.error ??
+            "Could not start Gnosis Pay sign-in.",
+        );
+      }
+
+      const { signMessage } = await import("@aboutcircles/miniapp-sdk");
+      const signed = await signMessage(
+        sessionPayload.message,
+        sessionPayload.signatureType ?? "erc1271",
+      );
+
+      const response = await fetch("/api/hootpot/gnosis-pay/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantAddress: address,
+          message: sessionPayload.message,
+          signature: signed.signature,
         }),
       });
       const payload = (await response.json()) as {
@@ -432,27 +474,26 @@ export function HootpotApp() {
       if (!response.ok || !payload.state) {
         const message =
           payload.error === "participant_not_linked_to_gnosis_pay_account"
-            ? "Connected wallet does not match the Gnosis Pay Safe, owner, or authenticated wallet for this token."
-            : payload.detail ?? payload.error ?? "Could not import Gnosis Pay receipts.";
+            ? "Connected wallet does not match the Gnosis Pay Safe, owner, or authenticated wallet."
+            : payload.detail ?? payload.error ?? "Could not sync Gnosis Pay receipts.";
         throw new Error(message);
       }
 
       setState(payload.state);
-      setGnosisPayToken("");
       const imported = payload.importedCount ?? 0;
       const updated = payload.updatedCount ?? 0;
       setMessage(
         imported + updated > 0
-          ? `Imported ${imported} new and refreshed ${updated} Gnosis Pay receipts.`
+          ? `Synced ${imported} new and refreshed ${updated} Gnosis Pay receipts.`
           : "No new eligible Gnosis Pay card receipts found.",
       );
       setActiveTicketId(payload.state.tickets[0]?.ticketId ?? null);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not import Gnosis Pay receipts.",
+        err instanceof Error ? err.message : "Could not sync Gnosis Pay receipts.",
       );
     } finally {
-      setIsImportingGnosisPay(false);
+      setIsSyncingGnosisPay(false);
     }
   }
 
@@ -547,7 +588,7 @@ export function HootpotApp() {
     try {
       const response = await fetch("/api/hootpot/draw", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: jsonHeaders(),
         body: JSON.stringify({}),
       });
       const payload = (await response.json()) as {
@@ -574,7 +615,7 @@ export function HootpotApp() {
     try {
       const response = await fetch("/api/hootpot/payout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: jsonHeaders(),
         body: JSON.stringify({ payoutTxHash }),
       });
       const payload = (await response.json()) as {
@@ -598,7 +639,10 @@ export function HootpotApp() {
   async function clearTickets() {
     setError(null);
     setMessage(null);
-    const response = await fetch("/api/hootpot/tickets", { method: "DELETE" });
+    const response = await fetch("/api/hootpot/tickets", {
+      method: "DELETE",
+      headers: jsonHeaders(),
+    });
     const payload = (await response.json()) as {
       state?: HootpotState;
       error?: string;
@@ -906,34 +950,23 @@ export function HootpotApp() {
                   Gnosis Pay Receipts
                 </h2>
                 <Badge variant="outline" className="rounded-[6px]">
-                  integration preview
+                  SIWE sync
                 </Badge>
               </div>
               <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
-                Import recent card payments from the Gnosis Pay API. The token is used
-                once on the server and must match the connected Safe, owner, or auth wallet.
+                Sign once with the connected Safe owner to sync recent card purchases.
+                Hootpot never stores a Gnosis Pay access token.
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,360px)_auto]">
-              <input
-                value={gnosisPayToken}
-                onChange={(event) => setGnosisPayToken(event.target.value)}
-                type="password"
-                placeholder="Gnosis Pay JWT"
-                className="h-11 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
-              />
+            <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
               <Button
                 type="button"
-                disabled={
-                  !gnosisPayToken.trim() ||
-                  !isConnected ||
-                  isImportingGnosisPay
-                }
-                onClick={importGnosisPayReceipts}
+                disabled={!isConnected || !isMiniappHost || isSyncingGnosisPay}
+                onClick={syncGnosisPayReceipts}
                 className="h-11 rounded-[8px] bg-[#0d7f5f] px-4 text-white hover:bg-[#0b6b51]"
               >
                 <CreditCard className="size-4" />
-                {isImportingGnosisPay ? "Importing..." : "Import Receipts"}
+                {isSyncingGnosisPay ? "Syncing..." : "Sync Receipts"}
               </Button>
             </div>
           </div>
@@ -1143,6 +1176,15 @@ export function HootpotApp() {
                 <ProofRow label="Seed" value={draw?.seed ?? "generated at draw"} />
               </div>
               <div className="grid gap-3 rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-3">
+                <label className="grid gap-2 text-sm font-semibold">
+                  Operator key
+                  <input
+                    value={operatorSecret}
+                    onChange={(event) => setOperatorSecret(event.target.value)}
+                    type="password"
+                    className="h-10 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
+                  />
+                </label>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
                     Round draw
@@ -1245,7 +1287,7 @@ export function HootpotApp() {
           />
           <InfoPanel
             title="Draw Registry"
-            body="A hackathon contract can record eligible receipts and the winning payer."
+            body="The receipt registry records eligible receipts and the winning payer."
             action={
               registryConfigured ? (
                 <a
@@ -1290,7 +1332,7 @@ export function HootpotApp() {
             body="Card receipts can enter Hootpot through the Gnosis Pay transaction API; webhooks are the production path."
             action={
               <span className="text-sm font-black text-[#0d7f5f]">
-                import preview
+                SIWE + webhook
               </span>
             }
           />

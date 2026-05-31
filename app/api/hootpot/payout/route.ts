@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { normalizeTxHash } from "@/lib/hootpot/amounts";
+import { requireHootpotAdmin } from "@/lib/server/hootpot/admin";
 import {
   getHootpotState,
   recordHootpotPayout,
@@ -14,6 +15,9 @@ function readString(value: unknown): string {
 }
 
 export async function POST(request: NextRequest) {
+  const adminError = requireHootpotAdmin(request);
+  if (adminError) return adminError;
+
   let body: unknown;
   try {
     body = await request.json();

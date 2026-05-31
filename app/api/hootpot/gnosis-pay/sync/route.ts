@@ -6,6 +6,7 @@ import {
   fetchGnosisPayCardTransactions,
   GnosisPayApiError,
   mapGnosisPayTransactionToReceipt,
+  requestGnosisPayAccessToken,
 } from "@/lib/server/hootpot/gnosisPay";
 import {
   getHootpotState,
@@ -17,12 +18,6 @@ export const dynamic = "force-dynamic";
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function readLimit(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
-  return 25;
 }
 
 export async function POST(request: NextRequest) {
@@ -38,18 +33,23 @@ export async function POST(request: NextRequest) {
   }
 
   const input = body as Record<string, unknown>;
-  const accessToken = readString(input.accessToken);
   const participantAddress = readString(input.participantAddress);
-  const limit = readLimit(input.limit);
+  const message = readString(input.message);
+  const signature = readString(input.signature);
 
-  if (!accessToken) {
-    return NextResponse.json({ error: "gnosis_pay_token_required" }, { status: 400 });
-  }
   if (!isConfiguredAddress(participantAddress)) {
     return NextResponse.json({ error: "participant_address_required" }, { status: 400 });
   }
+  if (!message || !signature) {
+    return NextResponse.json({ error: "signature_required" }, { status: 400 });
+  }
 
   try {
+    const accessToken = await requestGnosisPayAccessToken({
+      message,
+      signature,
+      ttlInSeconds: 3600,
+    });
     const accountAddresses = await fetchGnosisPayAccountAddresses(accessToken);
     if (
       accountAddresses.length === 0 ||
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const transactions = await fetchGnosisPayCardTransactions({
       accessToken,
-      limit,
+      limit: 100,
     });
     const receipts = transactions
       .map((transaction) =>
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         { status },
       );
     }
-    console.error("[hootpot] Gnosis Pay import failed", error);
-    return NextResponse.json({ error: "gnosis_pay_import_failed" }, { status: 500 });
+    console.error("[hootpot] Gnosis Pay sync failed", error);
+    return NextResponse.json({ error: "gnosis_pay_sync_failed" }, { status: 500 });
   }
 }

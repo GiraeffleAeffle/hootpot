@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireHootpotAdmin } from "@/lib/server/hootpot/admin";
 import { drawHootpotRound, getHootpotState } from "@/lib/server/hootpot/store";
 
 export const runtime = "nodejs";
@@ -10,6 +11,9 @@ function readString(value: unknown): string {
 }
 
 export async function POST(request: NextRequest) {
+  const adminError = requireHootpotAdmin(request);
+  if (adminError) return adminError;
+
   let seed: string | undefined;
   try {
     const input = (await request.json().catch(() => ({}))) as Record<

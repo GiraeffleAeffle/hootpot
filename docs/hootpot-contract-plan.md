@@ -2,7 +2,7 @@
 
 ## Hackathon Goal
 
-Use small contracts for Hootpot infrastructure. They should make the demo accountable without becoming a general Circles payment router.
+Use small contracts for Hootpot infrastructure. They should make the receipt and payout flow accountable without becoming a general Circles payment router.
 
 The safe first version is:
 
@@ -15,7 +15,7 @@ The safe first version is:
 
 ## Why Registry First
 
-Mainnet Circles are real user funds. The checkout flow should not split money, redirect value, or send arbitrary amounts to arbitrary recipients for the hackathon. The merchant payment stays simple: payer to merchant. Hootpot only adds eligibility and a later cashback step.
+Mainnet Circles are real user funds. The checkout flow should not split money, redirect value, or send arbitrary amounts to arbitrary recipients. The merchant payment stays simple: payer to merchant. Hootpot only adds eligibility and a later cashback step.
 
 This avoids the riskiest parts:
 
@@ -27,7 +27,7 @@ This avoids the riskiest parts:
 
 ## Contract Surface
 
-The hackathon contract set is intentionally narrow:
+The contract set is intentionally narrow:
 
 - `contracts/HootpotMerchantRegistry.sol` stores merchant payout addresses.
 - `contracts/HootpotPrizePool.sol` receives funding and can send non-CRC payouts.
@@ -55,28 +55,25 @@ The checkout path still pays merchants directly. None of these contracts pull fu
 
 ## Draw Model
 
-The hackathon draw uses a future Gnosis block hash. The owner can register verified receipts and close the round with a future `drawBlock`; after that block exists, anyone can call `drawRound`. The contract stores the block hash seed and winner so the result can be recomputed.
+The current draw uses a future Gnosis block hash. The owner can register verified receipts and close the round with a future `drawBlock`; after that block exists, anyone can call `drawRound`. The contract stores the block hash seed and winner so the result can be recomputed.
 
-This is good enough for a demo but is not Chainlink VRF. A production version should use a stronger public randomness source, such as Chainlink VRF where supported, or a commit/reveal process with stricter timing rules.
+This is transparent but is not Chainlink VRF. A production version should use a stronger public randomness source, such as Chainlink VRF where supported, or a commit/reveal process with stricter timing rules.
 
-## Gnosis Pay Extension
-
-Gnosis Pay can be a future receipt source, not the first integration.
+## Gnosis Pay Receipt Source
 
 The linked card payment looked like a CoW Protocol settlement using EURe/aGnoEURe on Gnosis Chain. That transaction is useful proof that card payments settle on-chain, but the raw settlement transaction alone does not expose a clean merchant address and receipt context for Hootpot.
 
-The likely production path is:
+Hootpot therefore uses official Gnosis Pay metadata, not raw settlement parsing:
 
-- import card transactions from an official Gnosis Pay API or webhook
+- sync card transactions through Gnosis Pay SIWE and `/api/v1/cards/transactions`
+- ingest `card.transaction.*` partner webhooks after Ed25519 signature verification
 - hash the card receipt id into `receiptRefHash`
 - register the Gnosis Pay receipt as an eligible Hootpot receipt
 - keep payout from the Hootpot Safe or a capped prize vault
 
-The app now labels this as "Gnosis Pay Later" so the demo does not imply active card integration.
-
 ## Production Upgrade Options
 
-After the hackathon, the registry can grow in one of two directions:
+The registry can grow in one of two directions:
 
 - Safe-led payouts: keep the current registry and pay winners from a Hootpot Safe.
 - Prize vault: add a capped custody contract that only pays the drawn winner for a closed round.

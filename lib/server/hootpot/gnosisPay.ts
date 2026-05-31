@@ -91,6 +91,96 @@ async function fetchGnosisPayJson(pathname: string, accessToken: string): Promis
   return payload;
 }
 
+function readAccessToken(payload: unknown): string {
+  const root = readRecord(payload);
+  const data = readRecord(root.data);
+  return (
+    readString(root.jwt) ||
+    readString(root.token) ||
+    readString(root.accessToken) ||
+    readString(data.jwt) ||
+    readString(data.token) ||
+    readString(data.accessToken)
+  );
+}
+
+export async function fetchGnosisPayNonce(): Promise<string> {
+  const response = await fetch(`${apiBaseUrl()}/api/v1/auth/nonce`, {
+    headers: { Accept: "application/json, text/plain" },
+    cache: "no-store",
+  });
+  const raw = await response.text();
+  if (!response.ok) {
+    throw new GnosisPayApiError(
+      raw || `Gnosis Pay nonce request failed with ${response.status}.`,
+      response.status,
+    );
+  }
+
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+
+  const root = readRecord(parsed);
+  const data = readRecord(root.data);
+  const plainNonce = parsed === null ? readString(raw) : "";
+  const nonce =
+    plainNonce ||
+    readString(root.nonce) ||
+    readString(root.message) ||
+    readString(data.nonce) ||
+    readString(data.message);
+
+  if (!nonce) {
+    throw new Error("gnosis_pay_nonce_missing");
+  }
+  return nonce;
+}
+
+export async function requestGnosisPayAccessToken(input: {
+  message: string;
+  signature: string;
+  ttlInSeconds?: number;
+}): Promise<string> {
+  const response = await fetch(`${apiBaseUrl()}/api/v1/auth/challenge`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: input.message,
+      signature: input.signature,
+      ttlInSeconds: input.ttlInSeconds ?? 3600,
+    }),
+    cache: "no-store",
+  });
+  const raw = await response.text();
+  let payload: unknown = null;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    const errorMessage =
+      readString(readRecord(payload).message) ||
+      readString(readRecord(payload).error) ||
+      raw ||
+      `Gnosis Pay auth failed with ${response.status}.`;
+    throw new GnosisPayApiError(errorMessage, response.status);
+  }
+
+  const accessToken = readAccessToken(payload) || (payload === null ? readString(raw) : "");
+  if (!accessToken) {
+    throw new Error("gnosis_pay_access_token_missing");
+  }
+  return accessToken;
+}
+
 function extractTransactionResults(payload: unknown): JsonRecord[] {
   if (Array.isArray(payload)) return payload.map(readRecord);
 
@@ -116,6 +206,37 @@ function collectAddressObject(addresses: Set<string>, value: unknown) {
   collectAddress(addresses, record.safeWalletAddress);
 }
 
+function collectAddressesDeep(addresses: Set<string>, value: unknown, depth = 0) {
+  if (depth > 5) return;
+  if (typeof value === "string") {
+    collectAddress(addresses, value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) collectAddressesDeep(addresses, entry, depth + 1);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  for (const entry of Object.values(value)) {
+    collectAddressesDeep(addresses, entry, depth + 1);
+  }
+}
+
+function findParticipantAddress(value: unknown): string {
+  const data = readRecord(value);
+  const safeWallets = readArray(data.safeWallets).map(readRecord);
+  const gnosisSafe = safeWallets.find(
+    (wallet) => readString(wallet.chainId) === "100",
+  );
+  const fallbackSafe = safeWallets[0];
+  const signInWallet = readArray(data.signInWallets).map(readRecord)[0];
+  return (
+    readString(gnosisSafe?.address) ||
+    readString(fallbackSafe?.address) ||
+    readString(signInWallet?.address)
+  );
+}
+
 export async function fetchGnosisPayAccountAddresses(
   accessToken: string,
 ): Promise<string[]> {
@@ -129,6 +250,7 @@ export async function fetchGnosisPayAccountAddresses(
 
   if (safeConfig.status === "fulfilled") {
     const root = readRecord(safeConfig.value);
+    collectAddressesDeep(addresses, root);
     collectAddressObject(addresses, root);
     collectAddressObject(addresses, root.safe);
     collectAddressObject(addresses, root.safeWallet);
@@ -139,6 +261,7 @@ export async function fetchGnosisPayAccountAddresses(
 
   if (user.status === "fulfilled") {
     const root = readRecord(user.value);
+    collectAddressesDeep(addresses, root);
     const data = readRecord(root.data);
     for (const wallet of readArray(root.safeWallets).concat(readArray(data.safeWallets))) {
       collectAddressObject(addresses, wallet);
@@ -149,6 +272,7 @@ export async function fetchGnosisPayAccountAddresses(
   }
 
   if (eoaAccounts.status === "fulfilled") {
+    collectAddressesDeep(addresses, eoaAccounts.value);
     const root = readRecord(eoaAccounts.value);
     const accounts = readArray(readRecord(root.data).eoaAccounts);
     for (const account of accounts) {
@@ -157,6 +281,7 @@ export async function fetchGnosisPayAccountAddresses(
   }
 
   if (owners.status === "fulfilled") {
+    collectAddressesDeep(addresses, owners.value);
     const root = readRecord(owners.value);
     for (const owner of readArray(readRecord(root.data).owners)) {
       collectAddress(addresses, owner);
@@ -267,4 +392,30 @@ export function mapGnosisPayTransactionToReceipt(input: {
     txHash: txHashes[0],
     txHashes: txHashes.length > 0 ? txHashes : undefined,
   };
+}
+
+export function mapGnosisPayWebhookPayloadToReceipt(
+  payload: unknown,
+): ExternalHootpotReceiptInput | null {
+  const root = readRecord(payload);
+  const eventType = readString(root.eventType);
+  if (
+    eventType !== "card.transaction.created" &&
+    eventType !== "card.transaction.cleared" &&
+    eventType !== "card.transaction.confirmed"
+  ) {
+    return null;
+  }
+
+  const data = readRecord(root.data);
+  const participantAddress = findParticipantAddress(data);
+  if (!ADDRESS_PATTERN.test(participantAddress)) return null;
+
+  const event = readRecord(data.event);
+  if (Object.keys(event).length === 0) return null;
+
+  return mapGnosisPayTransactionToReceipt({
+    transaction: event,
+    participantAddress,
+  });
 }

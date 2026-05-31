@@ -108,6 +108,24 @@ export type ExternalHootpotReceiptInput = {
 
 const STORE_FILE = "hootpot-ledger.json";
 const MAX_TICKETS = 500;
+const DEFAULT_LEDGER_KEY = "hootpot:ledger";
+
+type KvConfig = {
+  url: string;
+  token: string;
+  key: string;
+};
+
+function kvConfig(): KvConfig | null {
+  const url = process.env.KV_REST_API_URL?.trim();
+  const token = process.env.KV_REST_API_TOKEN?.trim();
+  if (!url || !token) return null;
+  return {
+    url: url.replace(/\/+$/, ""),
+    token,
+    key: process.env.HOOTPOT_LEDGER_KEY?.trim() || DEFAULT_LEDGER_KEY,
+  };
+}
 
 function storeDir(): string {
   if (process.env.VERCEL) {
@@ -128,7 +146,54 @@ function emptyLedger(): HootpotLedger {
   return { tickets: [], draw: null };
 }
 
+async function kvCommand<T>(config: KvConfig, command: unknown[]): Promise<T> {
+  const response = await fetch(config.url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(command),
+    cache: "no-store",
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | { result?: T; error?: string }
+    | null;
+
+  if (!response.ok || payload?.error) {
+    throw new Error(payload?.error ?? `kv_command_failed_${response.status}`);
+  }
+  return payload?.result as T;
+}
+
+async function readKvLedger(config: KvConfig): Promise<HootpotLedger> {
+  const raw = await kvCommand<string | null>(config, ["GET", config.key]);
+  if (!raw) return emptyLedger();
+  const parsed = JSON.parse(raw) as Partial<HootpotLedger>;
+  if (!Array.isArray(parsed.tickets)) return emptyLedger();
+  return {
+    tickets: parsed.tickets.filter(isTicket).slice(0, MAX_TICKETS),
+    draw: isDraw(parsed.draw) ? parsed.draw : null,
+  };
+}
+
+async function writeKvLedger(config: KvConfig, ledger: HootpotLedger) {
+  await kvCommand(config, [
+    "SET",
+    config.key,
+    JSON.stringify({
+      tickets: ledger.tickets.slice(0, MAX_TICKETS),
+      draw: ledger.draw,
+    }),
+  ]);
+}
+
 async function readLedger(): Promise<HootpotLedger> {
+  const config = kvConfig();
+  if (config) {
+    return readKvLedger(config);
+  }
+
   try {
     const raw = await fs.readFile(storePath(), "utf8");
     const parsed = JSON.parse(raw) as Partial<HootpotLedger>;
@@ -144,6 +209,12 @@ async function readLedger(): Promise<HootpotLedger> {
 }
 
 async function writeLedger(ledger: HootpotLedger) {
+  const config = kvConfig();
+  if (config) {
+    await writeKvLedger(config, ledger);
+    return;
+  }
+
   await ensureStoreDir();
   await fs.writeFile(
     storePath(),
