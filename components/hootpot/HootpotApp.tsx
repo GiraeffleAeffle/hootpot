@@ -675,7 +675,7 @@ export function HootpotApp() {
       if (!txResponse.ok || !txPayload.transactions?.length) {
         const message =
           txPayload.error === "no_transfer_path"
-            ? "No Circles transfer path to the pot yet. The Hootpot Safe must trust your Circles account first; after that you can fund in-app."
+            ? "No Circles transfer path to the pot yet. For admin top-ups, the Hootpot Safe must trust the funder first."
             : txPayload.error === "pot_not_configured"
               ? "The Hootpot pot address is not configured."
               : txPayload.error === "invalid_amount"
@@ -701,7 +701,7 @@ export function HootpotApp() {
     if (isTrustingSender) return;
     const trustedAddress = normalizedTrustedSenderAddress;
     if (!isConfiguredAddress(trustedAddress)) {
-      setError("Enter the Circles account that should be allowed to fund the pot.");
+      setError("Enter the test funder account that should be allowed to top up the pot.");
       return;
     }
     if (!address || !isConnected || !isMiniappHost) {
@@ -710,7 +710,7 @@ export function HootpotApp() {
     }
     if (!isPotOwnerConnected) {
       setError(
-        `Select the Hootpot Safe ${formatAddress(POT_ADDRESS)} as the active Circles account. A normal payer cannot grant trust for the pot.`,
+        `Select the Hootpot Safe ${formatAddress(POT_ADDRESS)} as the active Circles account. A normal user cannot grant trust for the pot.`,
       );
       return;
     }
@@ -745,7 +745,7 @@ export function HootpotApp() {
       const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
       await sendTransactions(txPayload.transactions);
       setMessage(
-        `${formatAddress(trustedAddress)} was submitted as a trusted pot sender. After indexing, switch back to that account and use Fund In App.`,
+        `${formatAddress(trustedAddress)} was submitted as a trusted test funder. After indexing, switch back to that account for an admin top-up.`,
       );
     } catch (err) {
       setError(
@@ -1117,88 +1117,90 @@ export function HootpotApp() {
                 />
               </div>
               <div className="rounded-[8px] border border-[#706095] bg-[#31264f] p-3 text-sm font-semibold leading-5 text-[#d9d1ea]">
-                Direct funding works for Circles accounts trusted by this Safe.
-                If no path exists yet, the Hootpot Safe has to trust the sender
-                first.
+                Users do not need to fund the pot or be added to a trust list.
+                Hootpot cashback is paid from this Safe after merchant or
+                operator funding.
               </div>
               {operatorMode ? (
-                <div className="grid gap-3 rounded-[8px] border border-[#706095] bg-[#fffdf8] p-3 text-[#171428]">
-                  <div className="flex gap-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-[#d8f36a] text-[#1f2a0a]">
-                      <ShieldCheck className="size-5" />
-                    </span>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
-                        Pot trust setup
-                      </p>
-                      <p className="text-sm font-semibold leading-5 text-[#4f475c]">
-                        Select the Hootpot Safe as the active account, then trust
-                        a payer so that account can fund the pot in-app.
+                <>
+                  <div className="grid gap-3 rounded-[8px] border border-[#706095] bg-[#fffdf8] p-3 text-[#171428]">
+                    <div className="flex gap-3">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-[#d8f36a] text-[#1f2a0a]">
+                        <ShieldCheck className="size-5" />
+                      </span>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
+                          Test funding setup
+                        </p>
+                        <p className="text-sm font-semibold leading-5 text-[#4f475c]">
+                          Only for admin testing: select the Hootpot Safe, then
+                          trust a test funder before sending direct CRC top-ups.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="grid gap-2 text-sm font-semibold">
+                      Test funder address
+                      <input
+                        value={trustedSenderAddress}
+                        onChange={(event) =>
+                          setTrustedSenderAddress(event.target.value)
+                        }
+                        placeholder="0x funder"
+                        className="h-10 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
+                      />
+                    </label>
+                    <div className="grid gap-2">
+                      <Button
+                        type="button"
+                        disabled={!canTrustSender || isTrustingSender}
+                        onClick={trustSenderForPot}
+                        className="h-10 rounded-[8px] bg-[#d8f36a] text-[#1f2a0a] hover:bg-[#e2f77d]"
+                      >
+                        <ShieldCheck className="size-4" />
+                        {isTrustingSender ? "Submitting..." : "Trust Test Funder"}
+                      </Button>
+                      <p className="text-xs font-semibold leading-4 text-[#746b80]">
+                        {isPotOwnerConnected
+                          ? "This writes trust from the Hootpot Safe on Circles Hub v2."
+                          : `Active account must be the Hootpot Safe ${formatAddress(POT_ADDRESS)}.`}
                       </p>
                     </div>
                   </div>
-                  <label className="grid gap-2 text-sm font-semibold">
-                    Payer address
-                    <input
-                      value={trustedSenderAddress}
-                      onChange={(event) =>
-                        setTrustedSenderAddress(event.target.value)
-                      }
-                      placeholder="0x sender"
-                      className="h-10 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
-                    />
-                  </label>
                   <div className="grid gap-2">
+                    <label className="text-sm font-semibold">
+                      Admin top-up
+                      <div className="mt-2 flex h-10 overflow-hidden rounded-[8px] border border-[#706095] bg-[#fffdf8] text-[#171428]">
+                        <input
+                          value={topUpAmount}
+                          onChange={(event) => setTopUpAmount(event.target.value)}
+                          inputMode="decimal"
+                          className="min-w-0 flex-1 px-3 font-bold outline-none"
+                        />
+                        <span className="flex items-center border-l border-[#d8cfbe] px-3 text-sm font-black text-[#746b80]">
+                          CRC
+                        </span>
+                      </div>
+                    </label>
                     <Button
                       type="button"
-                      disabled={!canTrustSender || isTrustingSender}
-                      onClick={trustSenderForPot}
-                      className="h-10 rounded-[8px] bg-[#d8f36a] text-[#1f2a0a] hover:bg-[#e2f77d]"
+                      disabled={!potConfigured || !normalizedTopUpAmount || isFundingPot}
+                      onClick={fundPot}
+                      className={cn(
+                        "h-10 rounded-[8px] bg-[#ff7a1a] px-3 text-sm font-black text-[#1c140b] hover:bg-[#ff8c3d]",
+                        (!potConfigured || !normalizedTopUpAmount || isFundingPot) &&
+                          "opacity-50",
+                      )}
                     >
-                      <ShieldCheck className="size-4" />
-                      {isTrustingSender ? "Submitting..." : "Trust Sender"}
+                      {isFundingPot
+                        ? "Funding..."
+                        : isMiniappHost
+                          ? "Admin Fund In App"
+                          : "Open Admin Transfer"}
+                      <ArrowRight className="size-4" />
                     </Button>
-                    <p className="text-xs font-semibold leading-4 text-[#746b80]">
-                      {isPotOwnerConnected
-                        ? "This writes trust from the Hootpot Safe on Circles Hub v2."
-                        : `Active account must be the Hootpot Safe ${formatAddress(POT_ADDRESS)}.`}
-                    </p>
                   </div>
-                </div>
+                </>
               ) : null}
-              <div className="grid gap-2">
-                <label className="text-sm font-semibold">
-                  Fund Hootpot Safe
-                  <div className="mt-2 flex h-10 overflow-hidden rounded-[8px] border border-[#706095] bg-[#fffdf8] text-[#171428]">
-                    <input
-                      value={topUpAmount}
-                      onChange={(event) => setTopUpAmount(event.target.value)}
-                      inputMode="decimal"
-                      className="min-w-0 flex-1 px-3 font-bold outline-none"
-                    />
-                    <span className="flex items-center border-l border-[#d8cfbe] px-3 text-sm font-black text-[#746b80]">
-                      CRC
-                    </span>
-                  </div>
-                </label>
-                <Button
-                  type="button"
-                  disabled={!potConfigured || !normalizedTopUpAmount || isFundingPot}
-                  onClick={fundPot}
-                  className={cn(
-                    "h-10 rounded-[8px] bg-[#ff7a1a] px-3 text-sm font-black text-[#1c140b] hover:bg-[#ff8c3d]",
-                    (!potConfigured || !normalizedTopUpAmount || isFundingPot) &&
-                      "opacity-50",
-                  )}
-                >
-                  {isFundingPot
-                    ? "Funding..."
-                    : isMiniappHost
-                      ? "Fund In App"
-                      : "Open Transfer"}
-                  <ArrowRight className="size-4" />
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </section>
@@ -1523,7 +1525,7 @@ export function HootpotApp() {
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <InfoPanel
             title="HOOT Support Group"
-            body="Open the HOOT group in Circles Core to set affiliate support. This does not directly fund cashback."
+            body="Open the HOOT group in Circles Core to join or set affiliate support. This is separate from pot funding."
             action={
               GROUP_URL ? (
                 <a
