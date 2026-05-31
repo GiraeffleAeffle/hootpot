@@ -115,7 +115,7 @@ Open the live link directly or through the Circles playground. Current public bu
 Demo limitation:
 
 ```text
-The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS. Gnosis Pay receipt sync also needs hootpot.vercel.app to be enabled for SIWE in the Gnosis Pay partner setup. HOOT open join requires deploying HootpotOpenGroupService and setting it as the group service once. The HOOT affiliate group can receive passive CRC support when users star it, but an automated sweep from group/treasury support into cashback payouts is still future work.
+The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS. Gnosis Pay receipt sync also needs hootpot.vercel.app to be enabled for SIWE in the Gnosis Pay partner setup. HOOT open join service is deployed, but the HOOT owner Safe still needs to set it as the group service once. The HOOT affiliate group can receive passive CRC support when users star it, but an automated sweep from group/treasury support into cashback payouts is still future work.
 ```
 
 Hootpot group:
@@ -125,6 +125,7 @@ HOOT Circles group: 0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0
 Group metrics: https://app.aboutcircles.com/groups/metrics/0xa31676f40eed5ea91664ab0ac188c48f6ccb54c0
 Group members/support route: https://app.aboutcircles.com/groups/members/0xa31676f40eed5ea91664ab0ac188c48f6ccb54c0
 Owner Safe: 0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5
+Open join service: 0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
 Mint handler: 0xBF7D36C8292Eef10105b14E981FDB2AEc2363823
 Treasury: 0x7C3091f2f2D6e2B838641Ef8020Adb2E1E966771
 ```
@@ -139,7 +140,7 @@ Hootpot is not yet usable by ordinary people as a live merchant product. The app
 - an on-chain/event watcher for Circles transfer data instead of only submitted tx hashes
 - production randomness, ideally Chainlink VRF where supported or a stronger commit/reveal flow
 - Gnosis Pay partner domain/webhook registration for continuous card receipt ingestion
-- one-time open-join service deployment/enabling for self-serve HOOT membership
+- one-time open-join service enabling from the HOOT owner Safe for self-serve HOOT membership
 
 Hootpot can sync real card transaction metadata through Gnosis Pay SIWE and can ingest signed `card.transaction.*` webhooks once the endpoint is configured in the Gnosis Pay partner settings.
 ```

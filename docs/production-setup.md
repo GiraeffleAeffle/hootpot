@@ -95,6 +95,12 @@ HOOTPOT_LEDGER_KEY=hootpot:ledger
 Users can star the HOOT group without this, but they cannot self-serve group
 membership and mint/support HOOT until the group has an open service.
 
+Current deployed open service:
+
+```text
+0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
+```
+
 Deploy the service:
 
 ```bash
@@ -108,7 +114,7 @@ forge script script/DeployHootpotOpenGroupService.s.sol:DeployHootpotOpenGroupSe
 Set the deployed address in Vercel and redeploy:
 
 ```text
-NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS=0x...
+NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS=0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
 ```
 
 Then open Hootpot with the HOOT owner Safe selected:

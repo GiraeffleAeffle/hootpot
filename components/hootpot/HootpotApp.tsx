@@ -1037,7 +1037,7 @@ export function HootpotApp() {
       if (!txResponse.ok) {
         const message =
           txPayload.error === "open_service_not_configured"
-            ? "Deploy HootpotOpenGroupService and set NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS first."
+            ? "Set NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS first."
             : txPayload.error === "group_owner_required"
               ? "The active account must be the HOOT group owner Safe."
               : txPayload.error ?? "Could not build open join setup transaction.";
@@ -1686,7 +1686,7 @@ export function HootpotApp() {
                           Service:{" "}
                           {openJoinServiceConfigured
                             ? formatAddress(group?.configuredOpenService ?? null)
-                            : "deploy + env required"}
+                            : "env required"}
                         </p>
                         <p>Status: {openJoinEnabled ? "enabled" : "not enabled"}</p>
                       </div>

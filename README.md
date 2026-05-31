@@ -54,7 +54,7 @@ Copy `.env.example` to `.env.local` and fill real recipients before using paymen
 NEXT_PUBLIC_HOOTPOT_GROUP_URL=
 NEXT_PUBLIC_HOOTPOT_GROUP_ADDRESS=
 NEXT_PUBLIC_HOOTPOT_GROUP_METRICS_URL=
-NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS=
+NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS=0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
 NEXT_PUBLIC_HOOTPOT_GROUP_MINT_HANDLER_ADDRESS=
 NEXT_PUBLIC_HOOTPOT_GROUP_TREASURY_ADDRESS=
 NEXT_PUBLIC_HOOTPOT_POT_ADDRESS=
@@ -277,6 +277,12 @@ forge script script/DeployHootpotOpenGroupService.s.sol:DeployHootpotOpenGroupSe
 Then set `NEXT_PUBLIC_HOOTPOT_GROUP_OPEN_SERVICE_ADDRESS` in Vercel, redeploy,
 open `https://hootpot.vercel.app/?operator=1` as the HOOT owner Safe, and click
 `Enable Open Join`.
+
+Current deployed open service:
+
+```text
+0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
+```
 
 ## Next Production Slice
 

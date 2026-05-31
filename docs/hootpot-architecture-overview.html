@@ -320,10 +320,10 @@
         <article class="panel">
           <h2>Current blocker</h2>
           <p style="margin-top: 12px">
-            The HOOT group currently has no open membership service. Until the
-            group owner Safe sets one, each member has to be accepted by the
-            group owner/service before that user can mint HOOT. Hootpot now has
-            a small open service contract and an owner-only setup flow for that.
+            The HOOT open service is deployed, but the group owner Safe still
+            has to set it as the group service once. Until then, each member has
+            to be accepted by the group owner/service before that user can mint
+            HOOT.
           </p>
         </article>
       </section>
@@ -485,6 +485,8 @@
           <dd>0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5</dd>
           <dt>Current group service</dt>
           <dd>0x0000000000000000000000000000000000000000</dd>
+          <dt>Open join service</dt>
+          <dd>0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df</dd>
           <dt>Mint handler</dt>
           <dd>0xBF7D36C8292Eef10105b14E981FDB2AEc2363823</dd>
           <dt>Treasury</dt>
@@ -537,7 +539,7 @@
           <div>
             <h3>Still required externally</h3>
             <ul>
-              <li>Deploy the open group service and set it as HOOT service.</li>
+              <li>Set the deployed open group service as the HOOT service.</li>
               <li>Configure real merchant payout addresses.</li>
               <li>Configure durable Postgres or KV storage in Vercel.</li>
               <li>Get <code>hootpot.vercel.app</code> whitelisted by Gnosis Pay.</li>
