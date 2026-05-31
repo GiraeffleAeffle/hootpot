@@ -327,6 +327,7 @@ export function mapGnosisPayTransactionToReceipt(input: {
   const status = readString(transaction.status);
 
   if (kind && kind.toLowerCase() !== "payment") return null;
+  if (readBoolean(transaction.isPending)) return null;
   if (/declined|failed|rejected|cancelled/i.test(status)) return null;
 
   const merchant = readRecord(transaction.merchant);
@@ -400,7 +401,6 @@ export function mapGnosisPayWebhookPayloadToReceipt(
   const root = readRecord(payload);
   const eventType = readString(root.eventType);
   if (
-    eventType !== "card.transaction.created" &&
     eventType !== "card.transaction.cleared" &&
     eventType !== "card.transaction.confirmed"
   ) {
