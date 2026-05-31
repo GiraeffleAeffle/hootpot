@@ -927,8 +927,9 @@ export function HootpotApp() {
               </p>
               <h2 className="text-2xl font-black leading-tight">HOOT Group</h2>
               <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
-                Set HOOT as an affiliate group in Circles Core. Pot funding is a
-                separate CRC transfer to the Hootpot Safe below.
+                Star HOOT in Circles Core to route affiliate CRC support to the
+                group over time. Cashback payouts still come from the Hootpot
+                Safe balance.
               </p>
               <p className="mt-2 font-mono text-xs font-bold text-[#746b80]">
                 {formatAddress(GROUP_ADDRESS)}
@@ -944,7 +945,7 @@ export function HootpotApp() {
               )}
             >
               <Star className="size-4" />
-              Open Group
+              Star HOOT
             </a>
             <a
               href={GROUP_METRICS_URL}
@@ -1117,9 +1118,9 @@ export function HootpotApp() {
                 />
               </div>
               <div className="rounded-[8px] border border-[#706095] bg-[#31264f] p-3 text-sm font-semibold leading-5 text-[#d9d1ea]">
-                Users do not need to fund the pot or be added to a trust list.
-                Hootpot cashback is paid from this Safe after merchant or
-                operator funding.
+                Users can support HOOT by starring the group. Cashback itself is
+                paid from this Safe after operator, merchant, sponsor, or future
+                HOOT treasury funding.
               </div>
               {operatorMode ? (
                 <>
@@ -1525,14 +1526,14 @@ export function HootpotApp() {
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <InfoPanel
             title="HOOT Support Group"
-            body="Open the HOOT group in Circles Core to join or set affiliate support. This is separate from pot funding."
+            body="Star HOOT in Circles Core to route affiliate support. Circles currently sends 2 of 24 daily CRC to the selected affiliate group."
             action={
               GROUP_URL ? (
                 <a
                   href={GROUP_URL}
                   className="inline-flex items-center gap-1 text-sm font-black text-[#251d3f]"
                 >
-                  Open Group
+                  Star HOOT
                   <ExternalLink className="size-4" />
                 </a>
               ) : (

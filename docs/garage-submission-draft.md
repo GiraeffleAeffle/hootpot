@@ -35,7 +35,7 @@ live prototype
 Short description:
 
 ```text
-Hootpot turns CRC merchant payments and Gnosis Pay card receipts into eligible receipts for a community-funded cashback pot. Users can open the HOOT Circles group from the app to set affiliate support, while direct pot top-ups are built as real Circles transfers to the Hootpot Safe. Verified receipts can then be paid back from the actual CRC balance held by that Safe.
+Hootpot turns CRC merchant payments and Gnosis Pay card receipts into eligible receipts for a community-funded cashback pot. Users can open the HOOT Circles group from the app and star it as their affiliate group, while cashback payouts are funded by the Hootpot Safe through operator, merchant, sponsor, or future HOOT treasury funding. Verified receipts can then be paid back from the actual CRC balance held by that Safe.
 ```
 
 ## 02 Contracts
@@ -108,13 +108,13 @@ https://github.com/GiraeffleAeffle/hootpot
 Notes:
 
 ```text
-Open the live link directly or through the Circles playground. Current public build shows the Hootpot group link, contract architecture, Neon-backed receipt ledger, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint for partner ingestion. Circles merchant checkout is guarded until a real merchant recipient and Hootpot pot address are configured. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
+Open the live link directly or through the Circles playground. Current public build shows the Hootpot group link, contract architecture, Neon-backed receipt ledger, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint for partner ingestion. Users can star HOOT in Circles Core so the group receives affiliate CRC support over time. Circles merchant checkout is guarded until a real merchant recipient and Hootpot pot address are configured. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
 ```
 
 Demo limitation:
 
 ```text
-The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS. Gnosis Pay receipt sync also needs hootpot.vercel.app to be enabled for SIWE in the Gnosis Pay partner setup.
+The live deployment is ready, but merchant checkout remains guarded until at least one real Circles recipient is configured as NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE and one Hootpot pot/org/Safe address is configured as NEXT_PUBLIC_HOOTPOT_POT_ADDRESS. Gnosis Pay receipt sync also needs hootpot.vercel.app to be enabled for SIWE in the Gnosis Pay partner setup. The HOOT affiliate group can receive passive CRC support when users star it, but an automated sweep from group/treasury support into cashback payouts is still future work.
 ```
 
 Hootpot group:
@@ -148,7 +148,7 @@ Demo script:
 3. Create a small CRC receipt.
 4. Pay through the Circles/Gnosis host wallet.
 5. Hootpot verifies the Gnosis Chain tx hash and marks the receipt eligible.
-6. Fund the Hootpot pot.
+6. Fund the Hootpot pot from operator/merchant/sponsor funds or future HOOT treasury support.
 7. Draw a cashback winner.
 8. Pay the winner back and record the payout tx hash.
 ```
@@ -158,7 +158,7 @@ Demo script:
 Longer pitch:
 
 ```text
-Hootpot is a local-commerce cashback layer for Circles. Instead of making merchants join a complicated lottery or yield product, the checkout remains normal: the customer pays the merchant directly in CRC. Hootpot only observes and verifies the receipt, then lets a separately funded community pool reimburse one eligible receipt. This keeps the merchant payment path simple, avoids redirecting user funds, and creates a visible reason for people to spend CRC at participating local shops.
+Hootpot is a local-commerce cashback layer for Circles. Instead of making merchants join a complicated lottery or yield product, the checkout remains normal: the customer pays the merchant directly in CRC. Hootpot only observes and verifies the receipt, then lets a separately funded community pool reimburse one eligible receipt. Users can star HOOT as an affiliate group so the community treasury receives passive CRC support over time. This keeps the merchant payment path simple, avoids redirecting user funds, and creates a visible reason for people to spend CRC at participating local shops.
 ```
 
 Future extension:
@@ -172,12 +172,12 @@ Public post:
 ```text
 I built Hootpot for the Circles Garage hackathon: a miniapp that turns a CRC merchant payment into a receipt for a community cashback pool.
 
-The demo has a deployed miniapp, a HOOT Circles group, Gnosis Chain contracts, a Neon-backed receipt ledger, a tested receipt/draw flow, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint. It is still not a ready consumer product: there is no official Circles merchant registry wired in and no real merchant network. For now merchants have to be preconfigured by address.
+The demo has a deployed miniapp, a HOOT Circles group people can star for affiliate support, Gnosis Chain contracts, a Neon-backed receipt ledger, a tested receipt/draw flow, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint. It is still not a ready consumer product: there is no official Circles merchant registry wired in and no real merchant network. For now merchants have to be preconfigured by address.
 
 What I would need to make this useful in the real world:
 - official merchant metadata / payout address discovery for Circles shops
 - Gnosis Pay SIWE domain allowlisting and webhook activation for card transaction and merchant receipt data
-- a pot/org/Safe payout setup wired to the HOOT group
+- clarity on how HOOT affiliate support can be programmatically routed from group/treasury support into cashback payouts
 - an event watcher for verified receipt indexing
 - production-grade randomness for bigger payouts
 

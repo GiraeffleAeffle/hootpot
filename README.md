@@ -4,11 +4,13 @@ Hootpot is a Circles miniapp for community-funded receipt cashback.
 
 The first version connects three Circles-native loops:
 
-- HOOT support group: users can open the Hootpot group in Circles Core and set affiliate support.
+- HOOT support group: users can open the Hootpot group in Circles Core and star it as their affiliate group.
 - Merchant receipts: a CRC checkout intent creates a receipt ticket for weekly cashback.
-- Pot top-ups: sponsors or merchants can add CRC to the operational pot wallet.
+- Pot funding: operators, merchants, or sponsors fund the operational payout Safe; HOOT affiliate support can grow the group treasury over time.
 
-The merchant payment goes to the merchant. Hootpot uses the verified receipt as eligibility, while cashback is funded only by the current CRC balance of the configured Hootpot Safe. Affiliate support and direct pot funding are intentionally separate: a pot top-up still needs a valid Circles transfer path to the Safe.
+The merchant payment goes to the merchant. Hootpot uses the verified receipt as eligibility, while cashback is funded only by the current CRC balance of the configured Hootpot Safe. Normal users do not need to fund the pot or be added to a trust list.
+
+Circles affiliate support is a slower, passive funding path: when someone stars HOOT as their affiliate group in Circles Core, the selected affiliate group receives 1/12 of that user's daily CRC issuance, currently 2 of 24 CRC per day. Those group/treasury funds are separate from the deployed prize-pool contract and can be used by the Hootpot operator once wired into the payout process.
 
 ## Current Scope
 
@@ -23,7 +25,7 @@ The merchant payment goes to the merchant. Hootpot uses the verified receipt as 
 - Merchant registry, prize pool, and receipt/draw registry contracts
 - Gnosis Pay SIWE sync and signed webhook ingestion as external receipt sources
 - Durable ledger support through Vercel KV / Upstash Redis REST, with local file fallback
-- Pot Safe balance lookup and in-app top-up transaction builder
+- Pot Safe balance lookup and operator-mode top-up transaction builder
 - Weekly cashback preview with deterministic ticket selection
 
 ## Run
@@ -154,7 +156,7 @@ The end-to-end live loop is:
 3. Create a small CRC receipt.
 4. Pay the merchant through the host wallet.
 5. Let Hootpot verify the Gnosis Chain transaction hash.
-6. Fund the Hootpot pot from the preconfigured pot card.
+6. Fund the Hootpot pot from operator mode, merchant/sponsor funding, or future HOOT treasury flow.
 7. Draw the winner in the Cashback panel.
 8. Pay the winner back from the Hootpot Safe or pool.
 9. Record the payout tx hash to mark the receipt as paid back.
@@ -171,7 +173,7 @@ The current contract surface is split into three small pieces:
 
 The contracts deliberately do not route the customer checkout payment. The merchant still gets paid directly by the Circles transfer path.
 
-CRC pot funding should point at `NEXT_PUBLIC_HOOTPOT_POT_ADDRESS`, ideally a Hootpot org/Safe/avatar that can receive Circles transfers. `HootpotPrizePool` is useful for native/ERC20 prize funding and payout proofs.
+CRC pot funding should point at `NEXT_PUBLIC_HOOTPOT_POT_ADDRESS`, ideally a Hootpot org/Safe/avatar that can receive Circles transfers. Direct CRC top-ups are an operator/admin flow, not a user onboarding step. `HootpotPrizePool` is useful for native/ERC20 prize funding and payout proofs.
 
 Run contract checks:
 
@@ -233,7 +235,7 @@ Hootpot is not a live merchant product until real merchant and payout infrastruc
 Missing pieces:
 
 - Real Circles merchant onboarding or an official merchant directory / payout address registry.
-- A Hootpot Circles group/org/Safe that can receive and distribute CRC.
+- A final automated sweep/payout process from HOOT affiliate support or merchant/sponsor funding into cashback payouts.
 - A configured durable store, preferably Neon/Postgres via `DATABASE_URL` or `POSTGRES_URL`.
 - A continuous Circles event watcher instead of only verifying submitted tx hashes.
 - Production randomness, such as Chainlink VRF where supported or a stricter commit/reveal flow.
@@ -248,6 +250,7 @@ partner setup steps.
 ## Next Production Slice
 
 - Configure a real merchant recipient and Hootpot pot address for a complete live Circles checkout flow.
+- Wire HOOT affiliate support into the payout process, or keep it as operator-managed treasury support.
 - Configure Neon/Postgres in Vercel so `DATABASE_URL` or `POSTGRES_URL` is available to production.
 - Watch `CrcV2_TransferData` events continuously instead of only verifying submitted hashes.
 - Verify receipt amount from decoded event logs, not just the transfer reference.

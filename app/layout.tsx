@@ -18,7 +18,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://hootpot.vercel.app"),
   title: "Hootpot",
-  description: "Circles receipts and real pot funding for community cashback.",
+  description:
+    "Circles receipt cashback powered by HOOT group support and operator-funded pots.",
   icons: {
     icon: "/assets/hootpot-group-avatar-v2.png",
     apple: "/assets/hootpot-group-avatar-v2.png",
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Hootpot",
     description:
-      "Circles receipts and real pot funding for community cashback.",
+      "Circles receipt cashback powered by HOOT group support and operator-funded pots.",
     images: ["/assets/hootpot-group-avatar-v2.png"],
   },
 };
