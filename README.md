@@ -61,6 +61,11 @@ GNOSIS_PAY_API_BASE_URL=
 GNOSIS_PAY_WEBHOOK_PUBLIC_KEY=
 GNOSIS_PAY_WEBHOOK_PUBLIC_KEY_URL=
 HOOTPOT_ADMIN_SECRET=
+DATABASE_URL=
+# or any Vercel/Neon Postgres URL:
+POSTGRES_URL=
+POSTGRES_PRISMA_URL=
+NEON_DATABASE_URL=
 KV_REST_API_URL=
 KV_REST_API_TOKEN=
 # or, if injected by the Upstash integration:
@@ -88,7 +93,7 @@ https://hootpot.vercel.app
 https://circles.gnosis.io/playground?url=https://hootpot.vercel.app
 ```
 
-Ledger storage uses Vercel KV / Upstash Redis REST when `KV_REST_API_URL` and `KV_REST_API_TOKEN` are configured. It also accepts `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` from the Upstash Marketplace integration. Without those env vars it falls back to `.data/` locally and `/tmp/hootpot` on Vercel, which is only suitable for local development.
+Ledger storage uses Neon/Postgres when `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, or `NEON_DATABASE_URL` is configured. If no Postgres URL exists, it falls back to Vercel KV / Upstash Redis REST via `KV_REST_API_URL` / `KV_REST_API_TOKEN` or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`. Without those env vars it falls back to `.data/` locally and `/tmp/hootpot` on Vercel, which is only suitable for local development.
 
 ## Cashback Model
 
@@ -227,7 +232,7 @@ Missing pieces:
 
 - Real Circles merchant onboarding or an official merchant directory / payout address registry.
 - A Hootpot Circles group/org/Safe that can receive and distribute CRC.
-- A configured durable store, preferably Vercel KV / Upstash Redis via `KV_REST_API_URL` / `KV_REST_API_TOKEN` or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.
+- A configured durable store, preferably Neon/Postgres via `DATABASE_URL` or `POSTGRES_URL`.
 - A continuous Circles event watcher instead of only verifying submitted tx hashes.
 - Production randomness, such as Chainlink VRF where supported or a stricter commit/reveal flow.
 - Gnosis Pay partner domain/webhook registration for continuous card receipt ingestion.
@@ -241,7 +246,7 @@ partner setup steps.
 ## Next Production Slice
 
 - Configure a real merchant recipient and Hootpot pot address for a complete live Circles checkout flow.
-- Configure `KV_REST_API_URL` and `KV_REST_API_TOKEN` in Vercel, or connect the Upstash integration and use its `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` env vars.
+- Configure Neon/Postgres in Vercel so `DATABASE_URL` or `POSTGRES_URL` is available to production.
 - Watch `CrcV2_TransferData` events continuously instead of only verifying submitted hashes.
 - Verify receipt amount from decoded event logs, not just the transfer reference.
 - Freeze ticket lists per round and publish draw proof.

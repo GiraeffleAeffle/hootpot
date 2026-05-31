@@ -17,6 +17,10 @@ import {
   buildGnosisCrcTransferUrl,
   encodeHootpotTransferData,
 } from "@/lib/hootpot/transferData";
+import {
+  readPostgresLedger,
+  writePostgresLedger,
+} from "@/lib/server/hootpot/postgresLedger";
 
 export type HootpotTicketStatus =
   | "pending_payment"
@@ -81,7 +85,7 @@ export type HootpotState = {
   draw: HootpotDraw | null;
 };
 
-type HootpotLedger = {
+export type HootpotLedger = {
   tickets: HootpotTicket[];
   draw: HootpotDraw | null;
 };
@@ -193,6 +197,14 @@ async function writeKvLedger(config: KvConfig, ledger: HootpotLedger) {
 }
 
 async function readLedger(): Promise<HootpotLedger> {
+  const postgresLedger = await readPostgresLedger(MAX_TICKETS);
+  if (postgresLedger) {
+    return {
+      tickets: postgresLedger.tickets.filter(isTicket).slice(0, MAX_TICKETS),
+      draw: isDraw(postgresLedger.draw) ? postgresLedger.draw : null,
+    };
+  }
+
   const config = kvConfig();
   if (config) {
     return readKvLedger(config);
@@ -213,6 +225,12 @@ async function readLedger(): Promise<HootpotLedger> {
 }
 
 async function writeLedger(ledger: HootpotLedger) {
+  const didWritePostgres = await writePostgresLedger({
+    tickets: ledger.tickets.slice(0, MAX_TICKETS),
+    draw: ledger.draw,
+  });
+  if (didWritePostgres) return;
+
   const config = kvConfig();
   if (config) {
     await writeKvLedger(config, ledger);

@@ -57,9 +57,19 @@ Paste the admin secret there. Ordinary users do not need this key.
 
 ### Durable Ledger
 
-Without durable storage, Vercel serverless storage can disappear. Create a
-Vercel KV / Upstash Redis store and connect it to the `hootpot` project. Vercel
-will provide:
+Without durable storage, Vercel serverless storage can disappear. The preferred
+production store is Neon/Postgres. Create a Neon database and connect it to the
+`hootpot` project. The app will use any of these connection strings:
+
+```text
+DATABASE_URL=
+POSTGRES_URL=
+POSTGRES_PRISMA_URL=
+NEON_DATABASE_URL=
+```
+
+If no Postgres URL exists, the app falls back to Vercel KV / Upstash Redis REST.
+Those stores usually provide:
 
 ```text
 KV_REST_API_URL=
@@ -102,9 +112,22 @@ You can set Vercel env vars from the project directory:
 
 ```bash
 printf '%s' '<secret>' | pnpm dlx vercel@latest env add HOOTPOT_ADMIN_SECRET production
+printf '%s' '<postgres-url>' | pnpm dlx vercel@latest env add DATABASE_URL production
 printf '%s' '<url>' | pnpm dlx vercel@latest env add KV_REST_API_URL production
 printf '%s' '<token>' | pnpm dlx vercel@latest env add KV_REST_API_TOKEN production
 pnpm dlx vercel@latest deploy --prod -y
+```
+
+If the Vercel account has the Neon Marketplace integration available, the free
+Postgres resource can be provisioned from the CLI:
+
+```bash
+pnpm dlx vercel@latest integration add neon \
+  --name hootpot-ledger \
+  --plan free_v3 \
+  --metadata region=fra1 \
+  --metadata auth=false \
+  --environment production
 ```
 
 If the Vercel account has the Marketplace terms accepted, the Redis resource can
