@@ -229,6 +229,11 @@ export function HootpotApp() {
     address: null,
   });
   const [state, setState] = useState<HootpotState | null>(null);
+  const [operatorMode] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("operator") === "1",
+  );
   const [selectedMerchantId, setSelectedMerchantId] = useState(MERCHANTS[0].id);
   const [amount, setAmount] = useState(DEFAULT_CHECKOUT_AMOUNT);
   const [topUpAmount, setTopUpAmount] = useState("25");
@@ -473,7 +478,9 @@ export function HootpotApp() {
       };
       if (!response.ok || !payload.state) {
         const message =
-          payload.error === "participant_not_linked_to_gnosis_pay_account"
+          payload.error === "gnosis_pay_domain_not_allowed"
+            ? "Gnosis Pay has not allowed this domain for SIWE yet. Register hootpot.vercel.app in the Gnosis Pay partner dashboard, then try again."
+            : payload.error === "participant_not_linked_to_gnosis_pay_account"
             ? "Connected wallet does not match the Gnosis Pay Safe, owner, or authenticated wallet."
             : payload.detail ?? payload.error ?? "Could not sync Gnosis Pay receipts.";
         throw new Error(message);
@@ -1078,7 +1085,7 @@ export function HootpotApp() {
                   >
                     <RotateCw className={cn("size-4", isRefreshing && "animate-spin")} />
                   </Button>
-                  {tickets.length > 0 ? (
+                  {operatorMode && tickets.length > 0 ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -1176,15 +1183,17 @@ export function HootpotApp() {
                 <ProofRow label="Seed" value={draw?.seed ?? "generated at draw"} />
               </div>
               <div className="grid gap-3 rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-3">
-                <label className="grid gap-2 text-sm font-semibold">
-                  Operator key
-                  <input
-                    value={operatorSecret}
-                    onChange={(event) => setOperatorSecret(event.target.value)}
-                    type="password"
-                    className="h-10 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
-                  />
-                </label>
+                {operatorMode ? (
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Operator key
+                    <input
+                      value={operatorSecret}
+                      onChange={(event) => setOperatorSecret(event.target.value)}
+                      type="password"
+                      className="h-10 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
+                    />
+                  </label>
+                ) : null}
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
                     Round draw
@@ -1204,7 +1213,12 @@ export function HootpotApp() {
                     </p>
                   )}
                 </div>
-                {draw ? (
+                {!operatorMode ? (
+                  <div className="rounded-[8px] border border-[#e9dfce] bg-white p-3 text-sm font-semibold text-[#746b80]">
+                    Cashback operations are run by the Hootpot operator after the
+                    round closes.
+                  </div>
+                ) : draw ? (
                   draw.payoutTxHash ? (
                     <ProofRow
                       label="Payout"

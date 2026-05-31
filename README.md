@@ -232,6 +232,8 @@ Missing pieces:
 Raw card settlement transactions alone are still not enough for clean merchant-level receipt context. Hootpot uses official card transaction metadata from SIWE-authenticated API calls or signed partner webhooks.
 
 See `docs/hootpot-contract-plan.md` for the safety model and upgrade path.
+See `docs/production-setup.md` for the Vercel, durable storage, and Gnosis Pay
+partner setup steps.
 
 ## Next Production Slice
 

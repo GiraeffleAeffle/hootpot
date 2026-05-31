@@ -86,6 +86,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof GnosisPayApiError) {
       const status = error.status === 401 || error.status === 403 ? error.status : 502;
+      if (/domain.*not.*allowed/i.test(error.message)) {
+        return NextResponse.json(
+          {
+            error: "gnosis_pay_domain_not_allowed",
+            detail: error.message,
+          },
+          { status },
+        );
+      }
       return NextResponse.json(
         { error: "gnosis_pay_api_failed", detail: error.message },
         { status },
