@@ -67,14 +67,22 @@ Deployed contract addresses:
 HootpotMerchantRegistry: 0x0FdAAb2F122493c08260042d6109E38AF101C189
 HootpotReceiptRegistry: 0xDf977829358499a735D9e05C4A32b1C1C5e64Ae8
 HootpotPrizePool: 0x0e0cd3B2f2e48B31c813a64814E35215634c5290
+HootpotOpenGroupService: 0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
 
-Deployment block: 46439728 on Gnosis Chain
+Deployment blocks: 46439728 for registry/receipt/pool, 46458020 for open-join service on Gnosis Chain
 Owner: 0x98f44DA4653D92F44f2b7cd328f37D2c199E077A
 
 GnosisScan:
 https://gnosisscan.io/address/0x0FdAAb2F122493c08260042d6109E38AF101C189
 https://gnosisscan.io/address/0xDf977829358499a735D9e05C4A32b1C1C5e64Ae8
 https://gnosisscan.io/address/0x0e0cd3B2f2e48B31c813a64814E35215634c5290
+https://gnosisscan.io/address/0xd268CF0FB4E32d090C22EbeD82B2B7d145ec95df
+
+Supporting Circles/Safe addresses:
+HOOT group: 0xa31676f40EED5eA91664AB0ac188c48F6CCb54c0
+Hootpot Safe / cashback pot / HOOT owner: 0x7c1eF6b21C030a6eC6c765fCE9b4F6599B4Aafb5
+HOOT mint handler: 0xBF7D36C8292Eef10105b14E981FDB2AEc2363823
+HOOT treasury: 0x7C3091f2f2D6e2B838641Ef8020Adb2E1E966771
 
 Tests:
 forge test
