@@ -315,6 +315,11 @@
             for merchant allowlists, receipt registration, draw records, and
             non-CRC prize payouts.
           </p>
+          <p style="margin-top: 12px">
+            A HOOT/EURe pool is not required for CRC cashback. HOOT can be
+            redeemed against the CRC collateral in the group treasury; EURe
+            liquidity only matters for card top-ups or EURe-denominated payouts.
+          </p>
         </article>
 
         <article class="panel">
@@ -347,17 +352,24 @@
             </p>
           </div>
           <div class="node orange">
-            <strong>3. Create receipts</strong>
+            <strong>3. Donate HOOT</strong>
+            <p>
+              Users can transfer minted HOOT to the Hootpot Safe. The operator
+              redeems that HOOT into trusted CRC collateral for cashback.
+            </p>
+          </div>
+          <div class="node orange">
+            <strong>4. Create receipts</strong>
             <p>
               Receipts come from Circles merchant checkout or from Gnosis Pay
               transaction metadata through SIWE sync or signed webhooks.
             </p>
           </div>
           <div class="node teal">
-            <strong>4. Pay cashback</strong>
+            <strong>5. Pay cashback</strong>
             <p>
               Hootpot selects one eligible receipt and pays the user back from
-              the payout Safe or a future treasury sweep.
+              the payout Safe.
             </p>
           </div>
         </div>
@@ -439,10 +451,15 @@
             </li>
             <li>
               <span class="num">4</span>
-              <span>Pay a participating merchant or sync Gnosis Pay receipts.</span>
+              <span>Optionally donate minted HOOT to the Hootpot Safe so it can
+              become cashback liquidity.</span>
             </li>
             <li>
               <span class="num">5</span>
+              <span>Pay a participating merchant or sync Gnosis Pay receipts.</span>
+            </li>
+            <li>
+              <span class="num">6</span>
               <span>Eligible receipts enter the cashback draw.</span>
             </li>
           </ol>
@@ -468,8 +485,13 @@
             </li>
             <li>
               <span class="num">4</span>
-              <span>Fund the payout Safe, run a draw, send the payback, and
-              record the payout transaction.</span>
+              <span>Trust the collateral avatar from the Hootpot Safe when
+              needed, then redeem donated HOOT into CRC collateral.</span>
+            </li>
+            <li>
+              <span class="num">5</span>
+              <span>Run a draw, send the payback, and record the payout
+              transaction.</span>
             </li>
           </ol>
         </article>
@@ -530,6 +552,7 @@
               <li>HOOT group state lookup from Gnosis Chain.</li>
               <li>Join HOOT transaction builder.</li>
               <li>HOOT mint/fund transaction builder through the mint handler.</li>
+              <li>HOOT donation and Safe redemption transaction builders.</li>
               <li>Owner-only open join setup transaction builder.</li>
               <li>Gnosis Pay SIWE sync and webhook ingestion endpoints.</li>
               <li>Receipt ledger, draw state, payout recording, and pot balance.</li>
@@ -542,7 +565,7 @@
               <li>Configure real merchant payout addresses.</li>
               <li>Configure durable Postgres or KV storage in Vercel.</li>
               <li>Get <code>hootpot.vercel.app</code> whitelisted by Gnosis Pay.</li>
-              <li>Fund the payout Safe or wire a treasury sweep policy.</li>
+              <li>Decide the production policy for donated HOOT redemption and payout sizing.</li>
               <li>Replace blockhash draw randomness with a stronger source.</li>
             </ul>
           </div>

@@ -8,6 +8,10 @@ import {
   ROUND_ID,
 } from "@/lib/hootpot/config";
 import { encodeHootpotTransferData } from "@/lib/hootpot/transferData";
+import {
+  getHootpotGroupPayoutState,
+  getHootpotGroupTokenBalance,
+} from "@/lib/server/hootpot/group";
 import type { HootpotTicket } from "@/lib/server/hootpot/store";
 
 export type MiniappTransaction = {
@@ -228,6 +232,11 @@ export async function getHootSupportState(input: {
   participantTrustsGroup: boolean;
   groupTrustsParticipant: boolean;
   maxMintableAtto: string;
+  groupTokenBalanceAtto: string;
+  potGroupTokenBalanceAtto: string;
+  potMaxRedeemableAtto: string;
+  redeemableCollateralTokenCount: number;
+  treasuryCollateralTokenCount: number;
 }> {
   if (!isConfiguredAddress(GROUP_ADDRESS)) {
     throw new Error("group_not_configured");
@@ -243,7 +252,12 @@ export async function getHootSupportState(input: {
     address: HUB_V2_ADDRESS,
     rpcUrl: gnosisRpcUrl(),
   });
-  const [participantTrustsGroup, groupTrustsParticipant] = await Promise.all([
+  const [
+    participantTrustsGroup,
+    groupTrustsParticipant,
+    groupTokenBalance,
+    payoutState,
+  ] = await Promise.all([
     hub.isTrusted(
       input.participantAddress as `0x${string}`,
       GROUP_ADDRESS as `0x${string}`,
@@ -252,6 +266,8 @@ export async function getHootSupportState(input: {
       GROUP_ADDRESS as `0x${string}`,
       input.participantAddress as `0x${string}`,
     ),
+    getHootpotGroupTokenBalance(input.participantAddress),
+    getHootpotGroupPayoutState(),
   ]);
 
   let maxMintableAtto = "0";
@@ -273,6 +289,11 @@ export async function getHootSupportState(input: {
     participantTrustsGroup,
     groupTrustsParticipant,
     maxMintableAtto,
+    groupTokenBalanceAtto: groupTokenBalance.toString(),
+    potGroupTokenBalanceAtto: payoutState.potGroupTokenBalanceAtto,
+    potMaxRedeemableAtto: payoutState.potMaxRedeemableAtto,
+    redeemableCollateralTokenCount: payoutState.redeemableCollateralTokenCount,
+    treasuryCollateralTokenCount: payoutState.treasuryCollateralTokenCount,
   };
 }
 

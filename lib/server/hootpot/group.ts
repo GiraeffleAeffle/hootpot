@@ -4,6 +4,7 @@ import {
   GROUP_OPEN_SERVICE_ADDRESS,
   isConfiguredAddress,
   normalizeAmount,
+  POT_ADDRESS,
   ROUND_ID,
 } from "@/lib/hootpot/config";
 import { encodeHootpotTransferData } from "@/lib/hootpot/transferData";
@@ -26,10 +27,27 @@ export type HootpotGroupState = {
   error?: string;
 };
 
+export type HootpotGroupPayoutState = {
+  potGroupTokenBalanceAtto: string;
+  potMaxRedeemableAtto: string;
+  redeemableCollateralTokenCount: number;
+  treasuryCollateralTokenCount: number;
+};
+
 type TransactionLike = {
   to: string;
   data: `0x${string}`;
   value?: bigint;
+};
+
+type TokenBalanceLike = {
+  tokenAddress?: string;
+  isErc1155?: boolean;
+};
+
+type AggregatedTrustRelationLike = {
+  relation?: string;
+  objectAvatar?: string;
 };
 
 const DEFAULT_GNOSIS_RPC_URL = "https://rpc.gnosischain.com/";
@@ -56,6 +74,12 @@ function mapTransaction(transaction: TransactionLike): MiniappTransaction {
   };
 }
 
+function uniqueAddresses(values: string[]): `0x${string}`[] {
+  return Array.from(new Set(values.map((value) => value.toLowerCase()))).filter(
+    (value): value is `0x${string}` => isConfiguredAddress(value),
+  );
+}
+
 async function groupContracts() {
   const { BaseGroupContract, HubV2Contract, circlesConfig } = await import(
     "@aboutcircles/sdk-core"
@@ -71,6 +95,103 @@ async function groupContracts() {
   });
 
   return { group, hub, rpcUrl };
+}
+
+async function groupTokenId(): Promise<bigint> {
+  const { hub } = await groupContracts();
+  return hub.toTokenId(GROUP_ADDRESS as `0x${string}`);
+}
+
+export async function getHootpotGroupTokenBalance(
+  holderAddress: string,
+): Promise<bigint> {
+  if (!isConfiguredAddress(holderAddress)) return BigInt(0);
+  const { hub } = await groupContracts();
+  const tokenId = await hub.toTokenId(GROUP_ADDRESS as `0x${string}`);
+  return hub.balanceOf(holderAddress as `0x${string}`, tokenId);
+}
+
+async function getGroupRedeemContext(redeemerAddress: string): Promise<{
+  sdk: InstanceType<typeof import("@aboutcircles/sdk").Sdk>;
+  expectedToTokens: `0x${string}`[];
+  treasuryCollateralTokenCount: number;
+}> {
+  const [{ Sdk }, { group }] = await Promise.all([
+    import("@aboutcircles/sdk"),
+    groupContracts(),
+  ]);
+  const sdk = new Sdk();
+  const treasuryAddress = (await group.BASE_TREASURY()).toLowerCase();
+  const [treasuryBalances, trustRelationships] = (await Promise.all([
+    sdk.rpc.balance.getTokenBalances(treasuryAddress as `0x${string}`),
+    sdk.rpc.trust.getAggregatedTrustRelations(
+      redeemerAddress.toLowerCase() as `0x${string}`,
+    ),
+  ])) as [TokenBalanceLike[], AggregatedTrustRelationLike[]];
+
+  const treasuryTokens = new Set(
+    treasuryBalances
+      .filter((balance) => balance.isErc1155 && balance.tokenAddress)
+      .map((balance) => String(balance.tokenAddress).toLowerCase()),
+  );
+  const expectedToTokens = uniqueAddresses(
+    trustRelationships
+      .filter(
+        (trustObject) =>
+          (trustObject.relation === "mutuallyTrusts" ||
+            trustObject.relation === "trusts") &&
+          Boolean(trustObject.objectAvatar) &&
+          treasuryTokens.has(String(trustObject.objectAvatar).toLowerCase()),
+      )
+      .map((trustObject) => String(trustObject.objectAvatar)),
+  );
+
+  return {
+    sdk,
+    expectedToTokens,
+    treasuryCollateralTokenCount: treasuryTokens.size,
+  };
+}
+
+export async function getHootpotGroupPayoutState(): Promise<HootpotGroupPayoutState> {
+  if (!isConfiguredAddress(GROUP_ADDRESS) || !isConfiguredAddress(POT_ADDRESS)) {
+    return {
+      potGroupTokenBalanceAtto: "0",
+      potMaxRedeemableAtto: "0",
+      redeemableCollateralTokenCount: 0,
+      treasuryCollateralTokenCount: 0,
+    };
+  }
+
+  const potGroupTokenBalance = await getHootpotGroupTokenBalance(POT_ADDRESS);
+  let potMaxRedeemableAtto = "0";
+  let redeemableCollateralTokenCount = 0;
+  let treasuryCollateralTokenCount = 0;
+
+  try {
+    const context = await getGroupRedeemContext(POT_ADDRESS);
+    redeemableCollateralTokenCount = context.expectedToTokens.length;
+    treasuryCollateralTokenCount = context.treasuryCollateralTokenCount;
+    if (context.expectedToTokens.length > 0) {
+      const maxRedeemable = await context.sdk.rpc.pathfinder.findMaxFlow({
+        from: POT_ADDRESS.toLowerCase() as `0x${string}`,
+        to: POT_ADDRESS.toLowerCase() as `0x${string}`,
+        useWrappedBalances: false,
+        fromTokens: [GROUP_ADDRESS.toLowerCase() as `0x${string}`],
+        toTokens: context.expectedToTokens,
+      });
+      potMaxRedeemableAtto = BigInt(maxRedeemable).toString();
+    }
+  } catch (error) {
+    console.warn("[hootpot] could not calculate HOOT redemption state", error);
+  }
+
+  return {
+    potGroupTokenBalanceAtto: potGroupTokenBalance.toString(),
+    potMaxRedeemableAtto,
+    redeemableCollateralTokenCount,
+    treasuryCollateralTokenCount,
+  };
 }
 
 export async function getHootpotGroupState(): Promise<HootpotGroupState | null> {
@@ -225,6 +346,114 @@ export async function buildGroupFundTransactions(input: {
   const memberAcceptsGroup = hub.trust(GROUP_ADDRESS as `0x${string}`, MAX_UINT96);
 
   return [memberAcceptsGroup, ...transactions].map(mapTransaction);
+}
+
+export async function buildGroupDonationTransactions(input: {
+  participantAddress: string;
+  amount: string;
+}): Promise<MiniappTransaction[]> {
+  if (!isConfiguredAddress(GROUP_ADDRESS)) {
+    throw new Error("group_not_configured");
+  }
+  if (!isConfiguredAddress(POT_ADDRESS)) {
+    throw new Error("pot_not_configured");
+  }
+  if (!isConfiguredAddress(input.participantAddress)) {
+    throw new Error("participant_required");
+  }
+  const normalizedAmount = normalizeAmount(input.amount);
+  if (!normalizedAmount) {
+    throw new Error("invalid_amount");
+  }
+
+  const amountAtto = crcToAtto(normalizedAmount);
+  const [tokenId, currentBalance] = await Promise.all([
+    groupTokenId(),
+    getHootpotGroupTokenBalance(input.participantAddress),
+  ]);
+  if (currentBalance < amountAtto) {
+    throw new Error("group_token_balance_too_low");
+  }
+
+  const { hub } = await groupContracts();
+  const transferData = encodeHootpotTransferData(
+    `hootpot:group-donation:${ROUND_ID}`,
+  ) as `0x${string}`;
+  return [
+    mapTransaction(
+      hub.safeTransferFrom(
+        input.participantAddress as `0x${string}`,
+        POT_ADDRESS as `0x${string}`,
+        tokenId,
+        amountAtto,
+        transferData,
+      ),
+    ),
+  ];
+}
+
+export async function buildGroupRedeemTransactions(input: {
+  operatorAddress: string;
+  amount: string;
+}): Promise<MiniappTransaction[]> {
+  if (!isConfiguredAddress(GROUP_ADDRESS)) {
+    throw new Error("group_not_configured");
+  }
+  if (!isConfiguredAddress(POT_ADDRESS)) {
+    throw new Error("pot_not_configured");
+  }
+  if (!isConfiguredAddress(input.operatorAddress)) {
+    throw new Error("operator_required");
+  }
+  if (input.operatorAddress.toLowerCase() !== POT_ADDRESS.toLowerCase()) {
+    throw new Error("pot_owner_required");
+  }
+  const normalizedAmount = normalizeAmount(input.amount);
+  if (!normalizedAmount) {
+    throw new Error("invalid_amount");
+  }
+
+  const amountAtto = crcToAtto(normalizedAmount);
+  const [potGroupTokenBalance, context, { TransferBuilder }] = await Promise.all([
+    getHootpotGroupTokenBalance(POT_ADDRESS),
+    getGroupRedeemContext(POT_ADDRESS),
+    import("@aboutcircles/sdk-transfers"),
+  ]);
+  if (potGroupTokenBalance < amountAtto) {
+    throw new Error("group_token_balance_too_low");
+  }
+  if (context.expectedToTokens.length === 0) {
+    throw new Error("no_redeemable_collateral_trust");
+  }
+
+  const maxRedeemable = await context.sdk.rpc.pathfinder.findMaxFlow({
+    from: POT_ADDRESS.toLowerCase() as `0x${string}`,
+    to: POT_ADDRESS.toLowerCase() as `0x${string}`,
+    useWrappedBalances: false,
+    fromTokens: [GROUP_ADDRESS.toLowerCase() as `0x${string}`],
+    toTokens: context.expectedToTokens,
+  });
+  if (BigInt(maxRedeemable) < amountAtto) {
+    throw new Error("no_group_redeem_path");
+  }
+
+  const transferBuilder = new TransferBuilder(context.sdk.circlesConfig);
+  const transferData = encodeHootpotTransferData(
+    `hootpot:group-redeem:${ROUND_ID}`,
+  );
+  const transactions = await transferBuilder.constructAdvancedTransfer(
+    POT_ADDRESS.toLowerCase() as `0x${string}`,
+    POT_ADDRESS.toLowerCase() as `0x${string}`,
+    amountAtto,
+    {
+      txData: hexToBytes(transferData),
+      useWrappedBalances: false,
+      fromTokens: [GROUP_ADDRESS.toLowerCase() as `0x${string}`],
+      toTokens: context.expectedToTokens,
+    },
+  );
+
+  return transactions.map(mapTransaction);
 }
 
 export async function buildGroupOpenServiceSetupTransactions(input: {

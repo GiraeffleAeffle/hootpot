@@ -6,18 +6,18 @@ The first version connects three Circles-native loops:
 
 - HOOT support group: users can open the Hootpot group in Circles Core and star it as their affiliate group.
 - Merchant receipts: a CRC checkout intent creates a receipt ticket for weekly cashback.
-- Pot funding: operators, merchants, or sponsors fund the operational payout Safe; HOOT affiliate support can grow the group treasury over time.
+- Pot funding: operators, merchants, or sponsors can fund the payout Safe directly; users can also donate minted HOOT to the Safe so the operator can redeem it into trusted CRC collateral.
 
 The merchant payment goes to the merchant. Hootpot uses the verified receipt as eligibility, while cashback is funded only by the current CRC balance of the configured Hootpot Safe. Normal users do not need to fund the pot or be added to a trust list.
 
-Circles affiliate support is a slower, passive funding path: when someone stars HOOT as their affiliate group in Circles Core, the selected affiliate group receives 1/12 of that user's daily CRC issuance, currently 2 of 24 CRC per day. Those group/treasury funds are separate from the deployed prize-pool contract and can be used by the Hootpot operator once wired into the payout process.
+Circles affiliate support is a slower, passive funding path: when someone stars HOOT as their affiliate group in Circles Core, the selected affiliate group receives 1/12 of that user's daily CRC issuance, currently 2 of 24 CRC per day. Minted or donated HOOT can be redeemed against treasury collateral for CRC cashback; a HOOT/EURe liquidity pool is only needed if Hootpot pays out in EURe or card top-ups instead of CRC.
 
 ## Current Scope
 
 - Embedded Circles miniapp shell from `aboutcircles/embedded-miniapp-boilerplate`
 - Host-injected wallet status through `@aboutcircles/miniapp-sdk`
 - Connected Circles account/profile/balance lookup through `@aboutcircles/sdk`
-- HOOT group state lookup, self-serve join transaction builder, and group mint/funding transaction builder
+- HOOT group state lookup, self-serve join transaction builder, group mint/funding transaction builder, HOOT donation transaction builder, and operator redemption transaction builder
 - Merchant checkout intent builder with real Circles pathfinding transactions
 - Host wallet submission through `sendTransactions`
 - On-chain transaction hash verification for Hootpot receipt references
@@ -161,10 +161,11 @@ The end-to-end live loop is:
 4. Create a small CRC receipt.
 5. Pay the merchant through the host wallet.
 6. Let Hootpot verify the Gnosis Chain transaction hash.
-7. Fund the Hootpot pot from operator mode, merchant/sponsor funding, or future HOOT treasury flow.
-8. Draw the winner in the Cashback panel.
-9. Pay the winner back from the Hootpot Safe or pool.
-10. Record the payout tx hash to mark the receipt as paid back.
+7. Donate minted HOOT to the Hootpot Safe, or fund the Safe from operator/merchant/sponsor funding.
+8. In operator mode, redeem donated HOOT into trusted CRC collateral when needed.
+9. Draw the winner in the Cashback panel.
+10. Pay the winner back from the Hootpot Safe or pool.
+11. Record the payout tx hash to mark the receipt as paid back.
 
 This proves the core mechanism with real Circles transactions. The Gnosis Pay sync button can additionally ingest real card transaction metadata through SIWE without exposing access tokens to the browser.
 
@@ -240,7 +241,7 @@ Hootpot is not a live merchant product until real merchant and payout infrastruc
 Missing pieces:
 
 - Real Circles merchant onboarding or an official merchant directory / payout address registry.
-- A final automated sweep/payout process from HOOT affiliate support or merchant/sponsor funding into cashback payouts.
+- A final treasury policy or watcher for when donated/redeemed HOOT should become cashback liquidity.
 - A configured durable store, preferably Neon/Postgres via `DATABASE_URL` or `POSTGRES_URL`.
 - A continuous Circles event watcher instead of only verifying submitted tx hashes.
 - Production randomness, such as Chainlink VRF where supported or a stricter commit/reveal flow.
@@ -262,6 +263,9 @@ two separate public actions:
 - Star HOOT in Circles Core for recurring affiliate support.
 - Join HOOT, then mint/support HOOT in the miniapp through the group mint
   handler.
+- Donate minted HOOT to the Hootpot Safe if you want that support to become
+  cashback liquidity. The Safe can redeem donated HOOT into trusted CRC
+  collateral from the group treasury.
 
 For the second action to be self-serve, Hootpot uses an open service as the HOOT
 group service. The deployed service is currently enabled on the group.
@@ -301,7 +305,7 @@ forge script script/EnableHootpotOpenJoinViaSafe.s.sol:EnableHootpotOpenJoinViaS
 ## Next Production Slice
 
 - Configure a real merchant recipient and Hootpot pot address for a complete live Circles checkout flow.
-- Wire HOOT affiliate support into the payout process, or keep it as operator-managed treasury support.
+- Automate the HOOT donation/redemption policy, or keep it as an operator-managed treasury step.
 - Configure Neon/Postgres in Vercel so `DATABASE_URL` or `POSTGRES_URL` is available to production.
 - Watch `CrcV2_TransferData` events continuously instead of only verifying submitted hashes.
 - Verify receipt amount from decoded event logs, not just the transfer reference.

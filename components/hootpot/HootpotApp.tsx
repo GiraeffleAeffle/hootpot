@@ -165,6 +165,11 @@ type HootSupportState = {
   participantTrustsGroup: boolean;
   groupTrustsParticipant: boolean;
   maxMintableAtto: string;
+  groupTokenBalanceAtto: string;
+  potGroupTokenBalanceAtto: string;
+  potMaxRedeemableAtto: string;
+  redeemableCollateralTokenCount: number;
+  treasuryCollateralTokenCount: number;
 };
 
 function isValidAmount(value: string): boolean {
@@ -249,6 +254,18 @@ function isPositiveAtto(value: string | null | undefined): boolean {
   }
 }
 
+function isAttoAtLeast(
+  balance: string | null | undefined,
+  requested: bigint | null,
+): boolean {
+  if (requested === null) return false;
+  try {
+    return BigInt(balance ?? "0") >= requested;
+  } catch {
+    return false;
+  }
+}
+
 function crcStringToAtto(value: string | null): bigint | null {
   if (!value) return null;
   const [whole, fractional = ""] = value.split(".");
@@ -328,11 +345,15 @@ export function HootpotApp() {
   const [isSyncingGnosisPay, setIsSyncingGnosisPay] = useState(false);
   const [isFundingPot, setIsFundingPot] = useState(false);
   const [supportAmount, setSupportAmount] = useState("5");
+  const [donationAmount, setDonationAmount] = useState("1");
+  const [redeemAmount, setRedeemAmount] = useState("5");
   const [supportState, setSupportState] = useState<HootSupportState | null>(null);
   const [supportRefreshNonce, setSupportRefreshNonce] = useState(0);
   const [isLoadingSupport, setIsLoadingSupport] = useState(false);
   const [isTrustingHoot, setIsTrustingHoot] = useState(false);
   const [isSupportingHoot, setIsSupportingHoot] = useState(false);
+  const [isDonatingHoot, setIsDonatingHoot] = useState(false);
+  const [isRedeemingHoot, setIsRedeemingHoot] = useState(false);
   const [trustedSenderAddress, setTrustedSenderAddress] = useState("");
   const [groupMemberAddress, setGroupMemberAddress] = useState("");
   const [isAddingGroupMember, setIsAddingGroupMember] = useState(false);
@@ -526,12 +547,33 @@ export function HootpotApp() {
     hasHootMintPath &&
     requestedSupportAtto !== null &&
     BigInt(supportState?.maxMintableAtto ?? "0") >= requestedSupportAtto;
+  const normalizedDonationAmount = normalizeAmount(donationAmount);
+  const requestedDonationAtto = crcStringToAtto(normalizedDonationAmount);
+  const canDonateHoot =
+    isConnected &&
+    isMiniappHost &&
+    potConfigured &&
+    groupConfigured &&
+    Boolean(normalizedDonationAmount) &&
+    isAttoAtLeast(supportState?.groupTokenBalanceAtto, requestedDonationAtto) &&
+    !isDonatingHoot;
+  const normalizedRedeemAmount = normalizeAmount(redeemAmount);
+  const requestedRedeemAtto = crcStringToAtto(normalizedRedeemAmount);
   const normalizedTrustedSenderAddress = trustedSenderAddress.trim();
   const normalizedGroupMemberAddress = groupMemberAddress.trim();
   const isPotOwnerConnected =
     potConfigured &&
     Boolean(address) &&
     address?.toLowerCase() === POT_ADDRESS.toLowerCase();
+  const canRedeemHoot =
+    operatorMode &&
+    isConnected &&
+    isMiniappHost &&
+    isPotOwnerConnected &&
+    groupConfigured &&
+    Boolean(normalizedRedeemAmount) &&
+    isAttoAtLeast(supportState?.potMaxRedeemableAtto, requestedRedeemAtto) &&
+    !isRedeemingHoot;
   const canTrustSender =
     operatorMode &&
     isMiniappHost &&
@@ -978,6 +1020,122 @@ export function HootpotApp() {
     }
   }
 
+  async function donateHootToPot() {
+    const normalized = normalizeAmount(donationAmount);
+    if (!address || !isConnected || !isMiniappHost) {
+      setError("Open Hootpot inside the Circles host with a connected wallet.");
+      return;
+    }
+    if (!normalized) {
+      setError("Enter a valid HOOT amount to donate.");
+      return;
+    }
+    if (isDonatingHoot) return;
+
+    setIsDonatingHoot(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const txResponse = await fetch("/api/hootpot/group/donate/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantAddress: address,
+          amount: normalized,
+        }),
+      });
+      const txPayload = (await txResponse.json()) as {
+        ok?: boolean;
+        transactions?: { to: string; data?: string; value?: string }[];
+        error?: string;
+      };
+      if (!txResponse.ok || !txPayload.transactions?.length) {
+        const message =
+          txPayload.error === "group_token_balance_too_low"
+            ? "You do not hold enough HOOT yet. Mint HOOT first, wait for indexing, then donate."
+            : txPayload.error === "pot_not_configured"
+              ? "The Hootpot Safe is not configured."
+              : txPayload.error === "invalid_amount"
+                ? "Enter a valid HOOT amount."
+                : txPayload.error ?? "Could not build the HOOT donation transaction.";
+        throw new Error(message);
+      }
+
+      const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
+      await sendTransactions(txPayload.transactions);
+      setMessage(
+        `Donated ${normalized} HOOT to the Hootpot Safe. The Safe can redeem it into trusted CRC collateral after indexing.`,
+      );
+      await refreshState({ preserveSelection: true });
+      setSupportRefreshNonce((value) => value + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not donate HOOT.");
+    } finally {
+      setIsDonatingHoot(false);
+    }
+  }
+
+  async function redeemHootForCashback() {
+    const normalized = normalizeAmount(redeemAmount);
+    if (!address || !isConnected || !isMiniappHost) {
+      setError("Open Hootpot inside the Circles host and select the Hootpot Safe.");
+      return;
+    }
+    if (!isPotOwnerConnected) {
+      setError(`Select the Hootpot Safe ${formatAddress(POT_ADDRESS)} first.`);
+      return;
+    }
+    if (!normalized) {
+      setError("Enter a valid HOOT amount to redeem.");
+      return;
+    }
+    if (isRedeemingHoot) return;
+
+    setIsRedeemingHoot(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const txResponse = await fetch("/api/hootpot/group/redeem/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          operatorAddress: address,
+          amount: normalized,
+        }),
+      });
+      const txPayload = (await txResponse.json()) as {
+        ok?: boolean;
+        transactions?: { to: string; data?: string; value?: string }[];
+        error?: string;
+      };
+      if (!txResponse.ok || !txPayload.transactions?.length) {
+        const message =
+          txPayload.error === "group_token_balance_too_low"
+            ? "The Hootpot Safe does not hold enough HOOT yet."
+            : txPayload.error === "no_redeemable_collateral_trust"
+              ? "The Safe does not trust the collateral avatar backing HOOT yet. Trust the donor account, wait for indexing, then redeem."
+              : txPayload.error === "no_group_redeem_path"
+                ? "No redemption path is indexed yet. Trust the donor account from the Safe, wait for indexing, then try again."
+                : txPayload.error === "pot_owner_required"
+                  ? "The active Circles account must be the Hootpot Safe."
+                  : txPayload.error ?? "Could not build the HOOT redemption transaction.";
+        throw new Error(message);
+      }
+
+      const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
+      await sendTransactions(txPayload.transactions);
+      setMessage(
+        `Redeemed ${normalized} HOOT into CRC collateral for the cashback Safe. Balances update after indexing.`,
+      );
+      await refreshState({ preserveSelection: true });
+      setSupportRefreshNonce((value) => value + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not redeem HOOT.");
+    } finally {
+      setIsRedeemingHoot(false);
+    }
+  }
+
   async function addGroupMember() {
     const memberAddress = normalizedGroupMemberAddress;
     if (!isConfiguredAddress(memberAddress)) {
@@ -1387,6 +1545,18 @@ export function HootpotApp() {
                 value={`${formatAttoCrc(supportState?.maxMintableAtto)} CRC`}
               />
               <ProofRow
+                label="Your HOOT"
+                value={`${formatAttoCrc(supportState?.groupTokenBalanceAtto)} HOOT`}
+              />
+              <ProofRow
+                label="Safe HOOT"
+                value={`${formatAttoCrc(supportState?.potGroupTokenBalanceAtto)} HOOT`}
+              />
+              <ProofRow
+                label="Safe redeemable"
+                value={`${formatAttoCrc(supportState?.potMaxRedeemableAtto)} CRC`}
+              />
+              <ProofRow
                 label="Mint handler"
                 value={formatAddress(
                   supportState?.mintHandler ?? groupMintHandlerAddress ?? null,
@@ -1429,7 +1599,7 @@ export function HootpotApp() {
               </Button>
             </div>
             <label className="grid gap-2 text-sm font-semibold">
-              Fund HOOT
+              Mint HOOT
               <div className="flex h-10 overflow-hidden rounded-[8px] border border-[#d8cfbe] bg-white text-[#171428]">
                 <input
                   value={supportAmount}
@@ -1451,6 +1621,29 @@ export function HootpotApp() {
               <Coins className="size-4" />
               {isSupportingHoot ? "Submitting..." : "Mint HOOT"}
             </Button>
+            <label className="grid gap-2 text-sm font-semibold">
+              Donate HOOT to cashback Safe
+              <div className="flex h-10 overflow-hidden rounded-[8px] border border-[#d8cfbe] bg-white text-[#171428]">
+                <input
+                  value={donationAmount}
+                  onChange={(event) => setDonationAmount(event.target.value)}
+                  inputMode="decimal"
+                  className="min-w-0 flex-1 px-3 font-bold outline-none"
+                />
+                <span className="flex items-center border-l border-[#e9dfce] px-3 text-sm font-black text-[#746b80]">
+                  HOOT
+                </span>
+              </div>
+            </label>
+            <Button
+              type="button"
+              disabled={!canDonateHoot}
+              onClick={donateHootToPot}
+              className="h-10 rounded-[8px] bg-[#0d7f5f] text-white hover:bg-[#0b6b51]"
+            >
+              <Gift className="size-4" />
+              {isDonatingHoot ? "Submitting..." : "Donate HOOT"}
+            </Button>
             {!supportState?.groupTrustsParticipant ? (
               <p className="rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3 text-xs font-semibold leading-4 text-[#746b80]">
                 {openJoinEnabled
@@ -1468,6 +1661,15 @@ export function HootpotApp() {
               <p className="rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3 text-xs font-semibold leading-4 text-[#746b80]">
                 The entered amount is above the current mint path. Try at most{" "}
                 {formatAttoCrc(supportState?.maxMintableAtto)} CRC.
+              </p>
+            ) : normalizedDonationAmount &&
+              !isAttoAtLeast(
+                supportState?.groupTokenBalanceAtto,
+                requestedDonationAtto,
+              ) ? (
+              <p className="rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3 text-xs font-semibold leading-4 text-[#746b80]">
+                You can donate up to{" "}
+                {formatAttoCrc(supportState?.groupTokenBalanceAtto)} HOOT right now.
               </p>
             ) : null}
           </div>
@@ -1626,14 +1828,22 @@ export function HootpotApp() {
                   value={formatCrcBalance(potTotal)}
                 />
                 <PotRow
+                  label="Safe HOOT"
+                  value={`${formatAttoCrc(supportState?.potGroupTokenBalanceAtto)} HOOT`}
+                />
+                <PotRow
+                  label="Redeemable HOOT"
+                  value={`${formatAttoCrc(supportState?.potMaxRedeemableAtto)} CRC`}
+                />
+                <PotRow
                   label="Max receipt payback"
                   value={`${MAX_CASHBACK_CRC} CRC`}
                 />
               </div>
               <div className="rounded-[8px] border border-[#706095] bg-[#31264f] p-3 text-sm font-semibold leading-5 text-[#d9d1ea]">
-                Users can support HOOT by starring the group. Cashback itself is
-                paid from this Safe after operator, merchant, sponsor, or future
-                HOOT treasury funding.
+                CRC cashback is paid from this Safe. HOOT support becomes payout
+                balance when donated HOOT is redeemed against group treasury
+                collateral.
               </div>
               {operatorMode ? (
                 <>
@@ -1752,6 +1962,39 @@ export function HootpotApp() {
                       <Users className="size-4" />
                       {isAddingGroupMember ? "Submitting..." : "Add HOOT Member"}
                     </Button>
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-semibold">
+                      Redeem HOOT backing
+                      <div className="mt-2 flex h-10 overflow-hidden rounded-[8px] border border-[#706095] bg-[#fffdf8] text-[#171428]">
+                        <input
+                          value={redeemAmount}
+                          onChange={(event) => setRedeemAmount(event.target.value)}
+                          inputMode="decimal"
+                          className="min-w-0 flex-1 px-3 font-bold outline-none"
+                        />
+                        <span className="flex items-center border-l border-[#d8cfbe] px-3 text-sm font-black text-[#746b80]">
+                          HOOT
+                        </span>
+                      </div>
+                    </label>
+                    <Button
+                      type="button"
+                      disabled={!canRedeemHoot}
+                      onClick={redeemHootForCashback}
+                      className={cn(
+                        "h-10 rounded-[8px] bg-[#d8f36a] px-3 text-sm font-black text-[#1f2a0a] hover:bg-[#e2f77d]",
+                        !canRedeemHoot && "opacity-50",
+                      )}
+                    >
+                      {isRedeemingHoot ? "Redeeming..." : "Redeem To CRC Pot"}
+                      <ArrowRight className="size-4" />
+                    </Button>
+                    <p className="text-xs font-semibold leading-4 text-[#c9c1dc]">
+                      {isPotOwnerConnected
+                        ? `Safe can redeem ${formatAttoCrc(supportState?.potMaxRedeemableAtto)} CRC after collateral trust is indexed.`
+                        : `Select the Hootpot Safe ${formatAddress(POT_ADDRESS)} to redeem.`}
+                    </p>
                   </div>
                   <div className="grid gap-2">
                     <label className="text-sm font-semibold">
