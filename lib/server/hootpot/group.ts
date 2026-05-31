@@ -426,14 +426,18 @@ export async function buildGroupRedeemTransactions(input: {
     throw new Error("no_redeemable_collateral_trust");
   }
 
-  const maxRedeemable = await context.sdk.rpc.pathfinder.findMaxFlow({
+  const pathOptions = {
     from: POT_ADDRESS.toLowerCase() as `0x${string}`,
     to: POT_ADDRESS.toLowerCase() as `0x${string}`,
     useWrappedBalances: false,
     fromTokens: [GROUP_ADDRESS.toLowerCase() as `0x${string}`],
     toTokens: context.expectedToTokens,
+  };
+  const path = await context.sdk.rpc.pathfinder.findPath({
+    ...pathOptions,
+    targetFlow: amountAtto,
   });
-  if (BigInt(maxRedeemable) < amountAtto) {
+  if (BigInt(path.maxFlow) < amountAtto || path.transfers.length === 0) {
     throw new Error("no_group_redeem_path");
   }
 
@@ -441,10 +445,13 @@ export async function buildGroupRedeemTransactions(input: {
   const transferData = encodeHootpotTransferData(
     `hootpot:group-redeem:${ROUND_ID}`,
   );
-  const transactions = await transferBuilder.constructAdvancedTransfer(
+  // constructAdvancedTransfer adds a default token exclusion list that can
+  // exclude the group token during same-address group redemption. We ask the
+  // pathfinder for the exact path above, then build the flow matrix directly.
+  const transactions = await transferBuilder.buildFlowMatrixTx(
     POT_ADDRESS.toLowerCase() as `0x${string}`,
     POT_ADDRESS.toLowerCase() as `0x${string}`,
-    amountAtto,
+    path,
     {
       txData: hexToBytes(transferData),
       useWrappedBalances: false,
