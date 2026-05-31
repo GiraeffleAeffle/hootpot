@@ -29,6 +29,8 @@ type TransactionReceipt = {
 };
 
 const DEFAULT_GNOSIS_RPC_URL = "https://rpc.gnosischain.com/";
+const HUB_V2_ADDRESS = "0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8";
+const MAX_UINT96 = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFF");
 
 function gnosisRpcUrl(): string {
   return process.env.GNOSIS_RPC_URL?.trim() || DEFAULT_GNOSIS_RPC_URL;
@@ -136,6 +138,42 @@ export async function buildHootpotTopUpTransactions(input: {
     data: transaction.data,
     value: String(transaction.value ?? BigInt(0)),
   }));
+}
+
+export async function buildPotTrustTransactions(input: {
+  operatorAddress: string;
+  trustedAddress: string;
+}): Promise<MiniappTransaction[]> {
+  if (!isConfiguredAddress(POT_ADDRESS)) {
+    throw new Error("pot_not_configured");
+  }
+  if (!isConfiguredAddress(input.operatorAddress)) {
+    throw new Error("operator_required");
+  }
+  if (!isConfiguredAddress(input.trustedAddress)) {
+    throw new Error("trusted_address_required");
+  }
+  if (input.operatorAddress.toLowerCase() !== POT_ADDRESS.toLowerCase()) {
+    throw new Error("pot_owner_required");
+  }
+  if (input.trustedAddress.toLowerCase() === POT_ADDRESS.toLowerCase()) {
+    throw new Error("trusted_address_is_pot");
+  }
+
+  const { HubV2ContractMinimal } = await import("@aboutcircles/sdk-core/minimal");
+  const hub = new HubV2ContractMinimal({
+    address: HUB_V2_ADDRESS,
+    rpcUrl: gnosisRpcUrl(),
+  });
+  const transaction = hub.trust(input.trustedAddress as `0x${string}`, MAX_UINT96);
+
+  return [
+    {
+      to: transaction.to,
+      data: transaction.data,
+      value: String(transaction.value ?? BigInt(0)),
+    },
+  ];
 }
 
 export async function verifyHootpotPaymentTx(

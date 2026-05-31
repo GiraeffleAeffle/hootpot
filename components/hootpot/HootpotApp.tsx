@@ -10,6 +10,7 @@ import {
   Gift,
   ReceiptText,
   RotateCw,
+  ShieldCheck,
   Star,
   Store,
   Ticket,
@@ -258,6 +259,8 @@ export function HootpotApp() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSyncingGnosisPay, setIsSyncingGnosisPay] = useState(false);
   const [isFundingPot, setIsFundingPot] = useState(false);
+  const [trustedSenderAddress, setTrustedSenderAddress] = useState("");
+  const [isTrustingSender, setIsTrustingSender] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isRecordingPayout, setIsRecordingPayout] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -371,6 +374,18 @@ export function HootpotApp() {
   const registryConfigured = isConfiguredAddress(REGISTRY_ADDRESS);
   const poolConfigured = isConfiguredAddress(POOL_ADDRESS);
   const merchantRegistryConfigured = isConfiguredAddress(MERCHANT_REGISTRY_ADDRESS);
+  const normalizedTrustedSenderAddress = trustedSenderAddress.trim();
+  const isPotOwnerConnected =
+    potConfigured &&
+    Boolean(address) &&
+    address?.toLowerCase() === POT_ADDRESS.toLowerCase();
+  const canTrustSender =
+    operatorMode &&
+    isMiniappHost &&
+    isConnected &&
+    isPotOwnerConnected &&
+    isConfiguredAddress(normalizedTrustedSenderAddress) &&
+    normalizedTrustedSenderAddress.toLowerCase() !== POT_ADDRESS.toLowerCase();
   const topUpTransferData = encodeHootpotTransferData(`hootpot:topup:${ROUND_ID}`);
   const normalizedTopUpAmount = normalizeAmount(topUpAmount);
   const topUpUrl =
@@ -660,7 +675,7 @@ export function HootpotApp() {
       if (!txResponse.ok || !txPayload.transactions?.length) {
         const message =
           txPayload.error === "no_transfer_path"
-            ? "No Circles transfer path to the pot yet. The pot must accept your CRC through trust or group membership first."
+            ? "No Circles transfer path to the pot yet. The Hootpot Safe must trust your Circles account first; after that you can fund in-app."
             : txPayload.error === "pot_not_configured"
               ? "The Hootpot pot address is not configured."
               : txPayload.error === "invalid_amount"
@@ -679,6 +694,65 @@ export function HootpotApp() {
       setError(err instanceof Error ? err.message : "Could not fund the pot.");
     } finally {
       setIsFundingPot(false);
+    }
+  }
+
+  async function trustSenderForPot() {
+    if (isTrustingSender) return;
+    const trustedAddress = normalizedTrustedSenderAddress;
+    if (!isConfiguredAddress(trustedAddress)) {
+      setError("Enter the Circles account that should be allowed to fund the pot.");
+      return;
+    }
+    if (!address || !isConnected || !isMiniappHost) {
+      setError("Open Hootpot inside the Circles host and select the Hootpot Safe.");
+      return;
+    }
+    if (!isPotOwnerConnected) {
+      setError(
+        `Select the Hootpot Safe ${formatAddress(POT_ADDRESS)} as the active Circles account. A normal payer cannot grant trust for the pot.`,
+      );
+      return;
+    }
+
+    setIsTrustingSender(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const txResponse = await fetch("/api/hootpot/pot/trust/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          operatorAddress: address,
+          trustedAddress,
+        }),
+      });
+      const txPayload = (await txResponse.json()) as {
+        ok?: boolean;
+        transactions?: { to: string; data?: string; value?: string }[];
+        error?: string;
+      };
+      if (!txResponse.ok || !txPayload.transactions?.length) {
+        const message =
+          txPayload.error === "pot_owner_required"
+            ? "The active Circles account must be the Hootpot Safe to trust a sender."
+            : txPayload.error === "trusted_address_is_pot"
+              ? "Enter a payer address, not the pot Safe itself."
+              : txPayload.error ?? "Could not build the pot trust transaction.";
+        throw new Error(message);
+      }
+
+      const { sendTransactions } = await import("@aboutcircles/miniapp-sdk");
+      await sendTransactions(txPayload.transactions);
+      setMessage(
+        `${formatAddress(trustedAddress)} was submitted as a trusted pot sender. After indexing, switch back to that account and use Fund In App.`,
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not trust the pot sender.",
+      );
+    } finally {
+      setIsTrustingSender(false);
     }
   }
 
@@ -1043,9 +1117,55 @@ export function HootpotApp() {
                 />
               </div>
               <div className="rounded-[8px] border border-[#706095] bg-[#31264f] p-3 text-sm font-semibold leading-5 text-[#d9d1ea]">
-                Direct funding needs a Circles path to this Safe. If no path
-                exists, the pot has to trust the sender first.
+                Direct funding works for Circles accounts trusted by this Safe.
+                If no path exists yet, the Hootpot Safe has to trust the sender
+                first.
               </div>
+              {operatorMode ? (
+                <div className="grid gap-3 rounded-[8px] border border-[#706095] bg-[#fffdf8] p-3 text-[#171428]">
+                  <div className="flex gap-3">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-[#d8f36a] text-[#1f2a0a]">
+                      <ShieldCheck className="size-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
+                        Pot trust setup
+                      </p>
+                      <p className="text-sm font-semibold leading-5 text-[#4f475c]">
+                        Select the Hootpot Safe as the active account, then trust
+                        a payer so that account can fund the pot in-app.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Payer address
+                    <input
+                      value={trustedSenderAddress}
+                      onChange={(event) =>
+                        setTrustedSenderAddress(event.target.value)
+                      }
+                      placeholder="0x sender"
+                      className="h-10 min-w-0 rounded-[8px] border border-[#d8cfbe] bg-white px-3 font-mono text-xs outline-none focus:border-[#251d3f]"
+                    />
+                  </label>
+                  <div className="grid gap-2">
+                    <Button
+                      type="button"
+                      disabled={!canTrustSender || isTrustingSender}
+                      onClick={trustSenderForPot}
+                      className="h-10 rounded-[8px] bg-[#d8f36a] text-[#1f2a0a] hover:bg-[#e2f77d]"
+                    >
+                      <ShieldCheck className="size-4" />
+                      {isTrustingSender ? "Submitting..." : "Trust Sender"}
+                    </Button>
+                    <p className="text-xs font-semibold leading-4 text-[#746b80]">
+                      {isPotOwnerConnected
+                        ? "This writes trust from the Hootpot Safe on Circles Hub v2."
+                        : `Active account must be the Hootpot Safe ${formatAddress(POT_ADDRESS)}.`}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid gap-2">
                 <label className="text-sm font-semibold">
                   Fund Hootpot Safe
