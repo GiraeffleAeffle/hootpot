@@ -66,6 +66,14 @@ KV_REST_API_URL=
 KV_REST_API_TOKEN=
 ```
 
+The app also accepts the native Upstash names if the Marketplace integration
+injects those instead:
+
+```text
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+```
+
 Optional custom ledger key:
 
 ```text
@@ -97,4 +105,18 @@ printf '%s' '<secret>' | pnpm dlx vercel@latest env add HOOTPOT_ADMIN_SECRET pro
 printf '%s' '<url>' | pnpm dlx vercel@latest env add KV_REST_API_URL production
 printf '%s' '<token>' | pnpm dlx vercel@latest env add KV_REST_API_TOKEN production
 pnpm dlx vercel@latest deploy --prod -y
+```
+
+If the Vercel account has the Marketplace terms accepted, the Redis resource can
+also be provisioned from the CLI. This creates a billable Upstash pay-as-you-go
+resource:
+
+```bash
+pnpm dlx vercel@latest integration add upstash/upstash-kv \
+  --name hootpot-ledger \
+  --plan paid \
+  --metadata primaryRegion=fra1 \
+  --metadata prodPack=false \
+  --metadata autoUpgrade=false \
+  --environment production
 ```

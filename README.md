@@ -63,6 +63,9 @@ GNOSIS_PAY_WEBHOOK_PUBLIC_KEY_URL=
 HOOTPOT_ADMIN_SECRET=
 KV_REST_API_URL=
 KV_REST_API_TOKEN=
+# or, if injected by the Upstash integration:
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 HOOTPOT_LEDGER_KEY=
 ```
 
@@ -85,7 +88,7 @@ https://hootpot.vercel.app
 https://circles.gnosis.io/playground?url=https://hootpot.vercel.app
 ```
 
-Ledger storage uses Vercel KV / Upstash Redis REST when `KV_REST_API_URL` and `KV_REST_API_TOKEN` are configured. Without those env vars it falls back to `.data/` locally and `/tmp/hootpot` on Vercel, which is only suitable for local development.
+Ledger storage uses Vercel KV / Upstash Redis REST when `KV_REST_API_URL` and `KV_REST_API_TOKEN` are configured. It also accepts `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` from the Upstash Marketplace integration. Without those env vars it falls back to `.data/` locally and `/tmp/hootpot` on Vercel, which is only suitable for local development.
 
 ## Cashback Model
 
@@ -224,7 +227,7 @@ Missing pieces:
 
 - Real Circles merchant onboarding or an official merchant directory / payout address registry.
 - A Hootpot Circles group/org/Safe that can receive and distribute CRC.
-- A configured durable store, preferably Vercel KV / Upstash Redis via `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+- A configured durable store, preferably Vercel KV / Upstash Redis via `KV_REST_API_URL` / `KV_REST_API_TOKEN` or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.
 - A continuous Circles event watcher instead of only verifying submitted tx hashes.
 - Production randomness, such as Chainlink VRF where supported or a stricter commit/reveal flow.
 - Gnosis Pay partner domain/webhook registration for continuous card receipt ingestion.
@@ -238,7 +241,7 @@ partner setup steps.
 ## Next Production Slice
 
 - Configure a real merchant recipient and Hootpot pot address for a complete live Circles checkout flow.
-- Configure `KV_REST_API_URL` and `KV_REST_API_TOKEN` in Vercel.
+- Configure `KV_REST_API_URL` and `KV_REST_API_TOKEN` in Vercel, or connect the Upstash integration and use its `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` env vars.
 - Watch `CrcV2_TransferData` events continuously instead of only verifying submitted hashes.
 - Verify receipt amount from decoded event logs, not just the transfer reference.
 - Freeze ticket lists per round and publish draw proof.
