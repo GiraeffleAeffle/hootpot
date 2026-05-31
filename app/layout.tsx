@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://hootpot.vercel.app"),
   title: "Hootpot",
   description: "Circles receipts and affiliate flow powering community cashback.",
   icons: {
