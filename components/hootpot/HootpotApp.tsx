@@ -548,6 +548,11 @@ export function HootpotApp() {
     group?.configuredOpenService ?? "",
   );
   const openJoinEnabled = Boolean(group?.openJoinEnabled);
+  const hootMembershipReady = Boolean(
+    supportState?.participantTrustsGroup && supportState?.groupTrustsParticipant,
+  );
+  const hasMintableSupport = isPositiveAtto(supportState?.maxMintableAtto);
+  const hasDonatableHoot = isPositiveAtto(supportState?.groupTokenBalanceAtto);
   const isGroupOwnerConnected =
     Boolean(address && group) &&
     address?.toLowerCase() === group?.owner.toLowerCase();
@@ -1471,6 +1476,102 @@ export function HootpotApp() {
         ) : null}
 
         <section className="grid gap-4 rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4 shadow-[0_6px_0_#251d3f] md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#746b80]">
+              Start here
+            </p>
+            <h2 className="mt-1 text-2xl font-black leading-tight">
+              Get a receipt into the cashback round
+            </h2>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <FlowStep
+                index="1"
+                label="Account"
+                value={isConnected ? accountDisplayName(account, address) : "not connected"}
+                done={isConnected}
+              />
+              <FlowStep
+                index="2"
+                label="HOOT"
+                value={
+                  hootMembershipReady
+                    ? "joined"
+                    : openJoinEnabled
+                      ? "ready to join"
+                      : "setup pending"
+                }
+                done={hootMembershipReady}
+              />
+              <FlowStep
+                index="3"
+                label="Receipt"
+                value={`${eligibleTickets.length} eligible`}
+                done={eligibleTickets.length > 0}
+              />
+            </div>
+          </div>
+          <div className="grid gap-2 md:min-w-56">
+            {!isConnected ? (
+              <a
+                href="https://circles.gnosis.io/playground?url=https%3A%2F%2Fhootpot.vercel.app%2F"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-[#251d3f] px-4 text-sm font-black text-[#fffdf8]"
+              >
+                <Wallet className="size-4" />
+                Open In Circles
+              </a>
+            ) : !hootMembershipReady ? (
+              <Button
+                type="button"
+                disabled={!isMiniappHost || !groupConfigured || isTrustingHoot}
+                onClick={joinHootGroup}
+                className="h-11 rounded-[8px] bg-[#251d3f] text-[#fffdf8] hover:bg-[#382b66]"
+              >
+                <ShieldCheck className="size-4" />
+                {isTrustingHoot ? "Joining..." : "Join HOOT"}
+              </Button>
+            ) : hasMintableSupport ? (
+              <Button
+                type="button"
+                disabled={!canSupportHoot}
+                onClick={supportHoot}
+                className="h-11 rounded-[8px] bg-[#ff7a1a] text-[#1c140b] hover:bg-[#ff8f3f]"
+              >
+                <Coins className="size-4" />
+                Mint HOOT
+              </Button>
+            ) : hasDonatableHoot ? (
+              <Button
+                type="button"
+                disabled={!canDonateHoot}
+                onClick={donateHootToPot}
+                className="h-11 rounded-[8px] bg-[#0d7f5f] text-white hover:bg-[#0b6b51]"
+              >
+                <Gift className="size-4" />
+                Donate HOOT
+              </Button>
+            ) : (
+              <a
+                href="#checkout"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-[#251d3f] px-4 text-sm font-black text-[#fffdf8]"
+              >
+                <ReceiptText className="size-4" />
+                Create Receipt
+              </a>
+            )}
+            <a
+              href={GROUP_URL}
+              className={cn(
+                "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#251d3f] bg-white px-3 text-sm font-black text-[#251d3f]",
+                !groupConfigured && "pointer-events-none opacity-50",
+              )}
+            >
+              <Star className="size-4" />
+              Star HOOT
+            </a>
+          </div>
+        </section>
+
+        <section className="grid gap-4 rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4 shadow-[0_6px_0_#251d3f] md:grid-cols-[1fr_auto] md:items-center">
           <div className="flex min-w-0 items-center gap-4">
             <span
               aria-hidden="true"
@@ -1524,79 +1625,91 @@ export function HootpotApp() {
           <div>
             <div className="flex items-center gap-2">
               <Star className="size-5 text-[#ff7a1a]" />
-              <h2 className="text-xl font-black">Join And Fund HOOT</h2>
+              <h2 className="text-xl font-black">Support Cashback</h2>
             </div>
-            <p className="mt-2 text-sm font-semibold leading-5 text-[#746b80]">
-              Join HOOT once, then mint HOOT through the group mint handler.
-              Your CRC becomes treasury collateral and you receive HOOT group
-              tokens. Starring HOOT is separate recurring affiliate support.
-            </p>
             <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-              <ProofRow
-                label="You accept HOOT"
+              <SupportStat
+                label="Membership"
                 value={
-                  supportState?.participantTrustsGroup
-                    ? "yes"
+                  hootMembershipReady
+                    ? "Joined"
                     : isLoadingSupport
-                      ? "checking"
-                      : "not yet"
+                      ? "Checking"
+                      : "Not joined"
                 }
               />
-              <ProofRow
-                label="HOOT accepts you"
-                value={
-                  supportState?.groupTrustsParticipant
-                    ? "yes"
-                    : isLoadingSupport
-                      ? "checking"
-                      : "not yet"
-                }
-              />
-              <ProofRow
-                label="Open join"
-                value={
-                  openJoinEnabled
-                    ? "enabled"
-                    : openJoinServiceConfigured
-                      ? "setup pending"
-                      : "service missing"
-                }
-              />
-              <ProofRow
+              <SupportStat
                 label="Mintable now"
                 value={`${formatAttoCrc(supportState?.maxMintableAtto)} CRC`}
               />
-              <ProofRow
+              <SupportStat
                 label="Your HOOT"
                 value={`${formatAttoCrc(supportState?.groupTokenBalanceAtto)} HOOT`}
               />
-              <ProofRow
+              <SupportStat
                 label="Safe HOOT"
                 value={`${formatAttoCrc(supportState?.potGroupTokenBalanceAtto)} HOOT`}
               />
-              <ProofRow
+              <SupportStat
                 label="Safe redeemable"
                 value={`${formatAttoCrc(supportState?.potMaxRedeemableAtto)} CRC`}
               />
-              <ProofRow
-                label="Mint handler"
-                value={formatAddress(
-                  supportState?.mintHandler ?? groupMintHandlerAddress ?? null,
-                )}
-              />
-              <ProofRow
-                label="Treasury"
-                value={formatAddress(groupTreasuryAddress)}
-              />
-              <ProofRow
+              <SupportStat
                 label="Treasury backing"
                 value={formatCrcBalance(group?.treasuryBalanceCrc ?? 0)}
               />
-              <ProofRow
-                label="HOOT supply"
-                value={formatCrcBalance(group?.totalSupplyCrc ?? 0)}
-              />
             </div>
+            <details className="mt-3 rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3 text-sm">
+              <summary className="cursor-pointer font-black text-[#251d3f]">
+                Group diagnostics
+              </summary>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <ProofRow
+                  label="You accept HOOT"
+                  value={
+                    supportState?.participantTrustsGroup
+                      ? "yes"
+                      : isLoadingSupport
+                        ? "checking"
+                        : "not yet"
+                  }
+                />
+                <ProofRow
+                  label="HOOT accepts you"
+                  value={
+                    supportState?.groupTrustsParticipant
+                      ? "yes"
+                      : isLoadingSupport
+                        ? "checking"
+                        : "not yet"
+                  }
+                />
+                <ProofRow
+                  label="Open join"
+                  value={
+                    openJoinEnabled
+                      ? "enabled"
+                      : openJoinServiceConfigured
+                        ? "setup pending"
+                        : "service missing"
+                  }
+                />
+                <ProofRow
+                  label="Mint handler"
+                  value={formatAddress(
+                    supportState?.mintHandler ?? groupMintHandlerAddress ?? null,
+                  )}
+                />
+                <ProofRow
+                  label="Treasury"
+                  value={formatAddress(groupTreasuryAddress)}
+                />
+                <ProofRow
+                  label="HOOT supply"
+                  value={formatCrcBalance(group?.totalSupplyCrc ?? 0)}
+                />
+              </div>
+            </details>
           </div>
           <div className="grid gap-3">
             <div className="grid grid-cols-2 gap-2">
@@ -1711,7 +1824,10 @@ export function HootpotApp() {
         )}
 
         <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
-          <Card className="rounded-[8px] border-[#251d3f] bg-[#fffdf8] shadow-none ring-[#251d3f]">
+          <Card
+            id="checkout"
+            className="rounded-[8px] border-[#251d3f] bg-[#fffdf8] shadow-none ring-[#251d3f]"
+          >
             <CardHeader className="border-b border-[#e9dfce]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -2525,6 +2641,55 @@ function DrawMetric({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="mt-1 text-xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function FlowStep({
+  index,
+  label,
+  value,
+  done,
+}: {
+  index: string;
+  label: string;
+  value: string;
+  done: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-[8px] border p-3",
+        done
+          ? "border-[#0d7f5f] bg-[#e7fbf4]"
+          : "border-[#e9dfce] bg-[#f7f1e8]",
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-8 shrink-0 items-center justify-center rounded-[8px] text-sm font-black",
+          done ? "bg-[#0d7f5f] text-white" : "bg-[#e9e2ff] text-[#2a2064]",
+        )}
+      >
+        {done ? <Check className="size-4" /> : index}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-bold uppercase tracking-[0.1em] text-[#746b80]">
+          {label}
+        </span>
+        <span className="block truncate text-sm font-black">{value}</span>
+      </span>
+    </div>
+  );
+}
+
+function SupportStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[8px] border border-[#e9dfce] bg-[#f7f1e8] p-3">
+      <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#746b80]">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-black">{value}</p>
     </div>
   );
 }
