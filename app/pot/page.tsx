@@ -133,7 +133,7 @@ export default async function PotPage() {
                     key={merchant.id}
                     href={
                       configured
-                        ? `/pay/${merchant.id}?amount=${DEFAULT_CHECKOUT_AMOUNT}`
+                        ? `/merchant/${merchant.id}?amount=${DEFAULT_CHECKOUT_AMOUNT}`
                         : "#"
                     }
                     className={[
@@ -153,7 +153,7 @@ export default async function PotPage() {
                       </span>
                     </span>
                     <span className="inline-flex h-9 items-center justify-center gap-2 rounded-[8px] bg-[#251d3f] px-3 text-sm font-black text-[#fffdf8]">
-                      Pay CRC
+                      Profile
                       <ExternalLink className="size-4" />
                     </span>
                   </Link>

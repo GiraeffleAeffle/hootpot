@@ -1,5 +1,5 @@
-import { HootpotApp } from "@/components/hootpot/HootpotApp";
+import { HootpotLandingPage } from "@/components/hootpot/HootpotLandingPage";
 
-export default function DashboardPage() {
-  return <HootpotApp />;
+export default function HomePage() {
+  return <HootpotLandingPage />;
 }

@@ -408,6 +408,47 @@ export async function createHootpotCheckout(input: {
   return ticket;
 }
 
+export async function createDirectHootpotCheckout(input: {
+  merchantAddress: string;
+  merchantName: string;
+  amount: string;
+  participantAddress?: string | null;
+}): Promise<HootpotTicket> {
+  const ledger = await readLedger();
+  const merchantAddress = input.merchantAddress.trim();
+  const merchantName = input.merchantName.trim() || "Circles Merchant";
+  const intentId = createIntentId();
+  const transferDataPayload = `hootpot:receipt:${intentId}`;
+  const transferData = encodeHootpotTransferData(transferDataPayload);
+  const paymentUrl = buildGnosisCrcTransferUrl(
+    merchantAddress,
+    input.amount,
+    transferData,
+  );
+  const now = new Date().toISOString();
+  const ticket: HootpotTicket = {
+    ticketId: randomUUID(),
+    intentId,
+    roundId: ROUND_ID,
+    merchantId: `direct-${hashHex(merchantAddress.toLowerCase()).slice(0, 12)}`,
+    merchantName,
+    merchantAddress,
+    participantAddress: input.participantAddress ?? null,
+    amount: input.amount,
+    cashbackAmount: String(cashbackForAmount(input.amount)),
+    status: "pending_payment",
+    transferDataPayload,
+    transferData,
+    paymentUrl,
+    createdAt: now,
+    updatedAt: now,
+    source: "circles_checkout",
+  };
+
+  await writeLedger({ ...ledger, tickets: [ticket, ...ledger.tickets] });
+  return ticket;
+}
+
 export async function upsertExternalHootpotReceipts(input: {
   receipts: ExternalHootpotReceiptInput[];
 }): Promise<{ importedCount: number; updatedCount: number; tickets: HootpotTicket[] }> {

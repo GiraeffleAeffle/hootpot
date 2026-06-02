@@ -20,6 +20,10 @@ Circles affiliate support is a slower, passive funding path: when someone stars 
 - HOOT group state lookup, self-serve join transaction builder, group mint/funding transaction builder, HOOT donation transaction builder, and operator redemption transaction builder
 - Merchant checkout intent builder with real Circles pathfinding transactions
 - Direct merchant checkout pages at `/pay/<merchant-id>?amount=<crc>`
+- Self-serve merchant checkout pages at `/pay/direct?merchantAddress=<address>&merchantName=<name>&amount=<crc>`
+- Merchant profile QR pages at `/merchant/<merchant-id>?amount=<crc>`
+- Connected account profile / merchant QR generator at `/me`
+- QR scan entry page at `/scan`
 - Public pot/traction page at `/pot`
 - Host wallet submission through `sendTransactions`
 - On-chain transaction hash verification for Hootpot receipt references
@@ -96,6 +100,18 @@ Each configured merchant also gets a direct checkout URL, for example:
 ```text
 https://hootpot.vercel.app/pay/owl-coffee?amount=1
 ```
+
+Configured merchants also get a QR/profile page:
+
+```text
+https://hootpot.vercel.app/merchant/owl-coffee?amount=1
+```
+
+For testing without a preconfigured merchant, open `/me` in the Circles host with
+the account that should receive CRC. Hootpot will generate a self-serve merchant
+QR that points to `/pay/direct`. This is useful for demos with two accounts, but
+a real deployment should still maintain a verified merchant registry before
+large cashback payouts.
 
 The public pot and traction page is:
 

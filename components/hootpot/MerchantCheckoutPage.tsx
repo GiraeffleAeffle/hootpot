@@ -26,6 +26,11 @@ import {
   POT_ADDRESS,
   type HootpotMerchant,
 } from "@/lib/hootpot/config";
+import {
+  circlesPlaygroundUrl,
+  directCheckoutUrl,
+  merchantCheckoutUrl,
+} from "@/lib/hootpot/urls";
 import { cn } from "@/lib/utils";
 import type {
   HootpotState,
@@ -54,9 +59,11 @@ function statusLabel(ticket: HootpotTicket | null): string {
 export function MerchantCheckoutPage({
   merchant,
   initialAmount,
+  directMode = false,
 }: {
   merchant: HootpotMerchant;
   initialAmount: string;
+  directMode?: boolean;
 }) {
   const { address, isConnected, isMiniappHost } = useWallet();
   const [amount, setAmount] = useState(initialAmount);
@@ -69,12 +76,14 @@ export function MerchantCheckoutPage({
 
   const normalizedAmount = normalizeAmount(amount);
   const merchantConfigured = isConfiguredAddress(merchant.address);
-  const checkoutUrl = `https://hootpot.vercel.app/pay/${merchant.id}?amount=${
-    normalizedAmount ?? initialAmount
-  }`;
-  const playgroundUrl = `https://circles.gnosis.io/playground?url=${encodeURIComponent(
-    checkoutUrl,
-  )}`;
+  const checkoutUrl = directMode
+    ? directCheckoutUrl({
+        merchantAddress: merchant.address,
+        merchantName: merchant.name,
+        amount: normalizedAmount ?? initialAmount,
+      })
+    : merchantCheckoutUrl(merchant.id, normalizedAmount ?? initialAmount);
+  const playgroundUrl = circlesPlaygroundUrl(checkoutUrl);
 
   async function createTicket() {
     if (!normalizedAmount || isCreating) return;
@@ -82,15 +91,27 @@ export function MerchantCheckoutPage({
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch("/api/hootpot/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          merchantId: merchant.id,
-          amount: normalizedAmount,
-          participantAddress: address,
-        }),
-      });
+      const response = await fetch(
+        directMode ? "/api/hootpot/direct-checkout" : "/api/hootpot/checkout",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            directMode
+              ? {
+                  merchantAddress: merchant.address,
+                  merchantName: merchant.name,
+                  amount: normalizedAmount,
+                  participantAddress: address,
+                }
+              : {
+                  merchantId: merchant.id,
+                  amount: normalizedAmount,
+                  participantAddress: address,
+                },
+          ),
+        },
+      );
       const payload = (await response.json()) as {
         ok?: boolean;
         ticket?: HootpotTicket;

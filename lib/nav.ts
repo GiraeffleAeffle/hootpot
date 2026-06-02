@@ -4,5 +4,9 @@ export type NavItem = {
 };
 
 export const NAV: NavItem[] = [
-  { href: "/", label: "Hootpot" },
+  { href: "/", label: "Home" },
+  { href: "/me", label: "Me" },
+  { href: "/scan", label: "Scan" },
+  { href: "/pot", label: "Pot" },
+  { href: "/dashboard", label: "Dashboard" },
 ];
