@@ -40,6 +40,15 @@ export async function POST(
   if (!ticket) {
     return NextResponse.json({ error: "ticket_not_found" }, { status: 404 });
   }
+  if (ticket.source === "gnosis_pay") {
+    return NextResponse.json(
+      { error: "ticket_source_not_circles_checkout" },
+      { status: 400 },
+    );
+  }
+  if (ticket.status === "eligible" || ticket.status === "reimbursed") {
+    return NextResponse.json({ error: "ticket_already_closed" }, { status: 409 });
+  }
 
   await recordHootpotPaymentSubmission({ ticketId, txHashes });
   const verification = await verifyHootpotPayment({ ticket, txHashes });

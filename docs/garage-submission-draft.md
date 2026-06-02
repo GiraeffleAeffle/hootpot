@@ -117,7 +117,7 @@ https://github.com/GiraeffleAeffle/hootpot
 Notes:
 
 ```text
-Open the live link directly or through the Circles playground. Current public build shows the Hootpot group link, Join HOOT / Mint HOOT / Donate HOOT flows, contract architecture, Neon-backed receipt ledger, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint for partner ingestion. Users can star HOOT in Circles Core so the group receives affiliate CRC support over time. Donated HOOT can be redeemed by the Hootpot Safe into trusted CRC collateral for cashback. Circles merchant checkout is guarded until a real merchant recipient and Hootpot pot address are configured. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
+Open the live link directly or through the Circles playground. Current public build shows the Hootpot group link, Join HOOT / Mint HOOT / Donate HOOT flows, public pot page, direct merchant checkout links, contract architecture, Neon-backed receipt ledger, SIWE-based Gnosis Pay receipt sync code, and a signed webhook endpoint for partner ingestion. Users can star HOOT in Circles Core so the group receives affiliate CRC support over time. Donated HOOT can be redeemed by the Hootpot Safe into trusted CRC collateral for cashback. Direct CRC merchant checkout is the primary live path; Gnosis Pay is kept as an integration path pending SIWE allowlisting. For judging, use a second Circles/Gnosis account as the merchant recipient, because the Circles checkout docs recommend a separate test recipient and sending to yourself is blocked.
 ```
 
 Demo limitation:
@@ -157,13 +157,14 @@ Demo script:
 
 ```text
 1. Open Hootpot in the Circles playground.
-2. Pick a preconfigured merchant.
-3. Create a small CRC receipt.
-4. Pay through the Circles/Gnosis host wallet.
-5. Hootpot verifies the Gnosis Chain tx hash and marks the receipt eligible.
-6. Star/join HOOT and mint HOOT support, or fund the Hootpot pot from operator/merchant/sponsor funds.
-7. Draw a cashback winner.
-8. Pay the winner back and record the payout tx hash.
+2. Open /pot to see the real cashback Safe balance and configured merchant links.
+3. Open /pay/<merchant-id>?amount=1 for a configured merchant.
+4. Create a small CRC receipt.
+5. Pay through the Circles/Gnosis host wallet.
+6. Hootpot verifies the Gnosis Chain tx hash and marks the receipt eligible.
+7. Star/join HOOT and mint HOOT support, or fund the Hootpot pot from operator/merchant/sponsor funds.
+8. Draw a cashback winner.
+9. Pay the winner back and record the payout tx hash.
 ```
 
 ## 04 Review
@@ -185,7 +186,7 @@ Public post:
 ```text
 I built Hootpot for the Circles Garage hackathon: a miniapp that turns a CRC merchant payment into a receipt for a community cashback pool.
 
-The demo has a deployed miniapp, a HOOT Circles group people can star/join/mint/donate support for, Gnosis Chain contracts, a Neon-backed receipt ledger, a tested receipt/draw flow, SIWE-based Gnosis Pay receipt sync, and a signed webhook endpoint. It is still not a ready consumer product: there is no official Circles merchant registry wired in and no real merchant network. For now merchants have to be preconfigured by address.
+The demo has a deployed miniapp, direct CRC merchant checkout links, a public pot page, a HOOT Circles group people can star/join/mint/donate support for, Gnosis Chain contracts, a Neon-backed receipt ledger, a tested receipt/draw flow, SIWE-based Gnosis Pay receipt sync code, and a signed webhook endpoint. It is still not a ready consumer product: there is no official Circles merchant registry wired in and no real merchant network. For now merchants have to be preconfigured by address.
 
 What I would need to make this useful in the real world:
 - official merchant metadata / payout address discovery for Circles shops

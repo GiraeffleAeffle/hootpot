@@ -19,6 +19,8 @@ Circles affiliate support is a slower, passive funding path: when someone stars 
 - Connected Circles account/profile/balance lookup through `@aboutcircles/sdk`
 - HOOT group state lookup, self-serve join transaction builder, group mint/funding transaction builder, HOOT donation transaction builder, and operator redemption transaction builder
 - Merchant checkout intent builder with real Circles pathfinding transactions
+- Direct merchant checkout pages at `/pay/<merchant-id>?amount=<crc>`
+- Public pot/traction page at `/pot`
 - Host wallet submission through `sendTransactions`
 - On-chain transaction hash verification for Hootpot receipt references
 - Preconfigured merchant payout addresses, no shopper address entry
@@ -64,6 +66,7 @@ NEXT_PUBLIC_HOOTPOT_MERCHANT_REGISTRY_ADDRESS=
 NEXT_PUBLIC_HOOTPOT_MERCHANT_ONE=
 NEXT_PUBLIC_HOOTPOT_MERCHANT_TWO=
 NEXT_PUBLIC_HOOTPOT_MERCHANT_THREE=
+NEXT_PUBLIC_HOOTPOT_ENABLE_GNOSIS_PAY=0
 GNOSIS_RPC_URL=
 GNOSIS_PAY_API_BASE_URL=
 GNOSIS_PAY_WEBHOOK_PUBLIC_KEY=
@@ -83,8 +86,22 @@ HOOTPOT_LEDGER_KEY=
 ```
 
 Without configured addresses, payment and top-up links stay guarded in the UI.
+Keep `NEXT_PUBLIC_HOOTPOT_ENABLE_GNOSIS_PAY=0` until the Gnosis Pay partner
+domain is approved for SIWE; the direct CRC merchant checkout remains usable
+without Gnosis Pay.
 
 Merchant payout addresses should be preconfigured before the app is shown. A shopper should only choose a merchant, pay, and see the receipt enter the Hootpot round.
+Each configured merchant also gets a direct checkout URL, for example:
+
+```text
+https://hootpot.vercel.app/pay/owl-coffee?amount=1
+```
+
+The public pot and traction page is:
+
+```text
+https://hootpot.vercel.app/pot
+```
 
 ## Deploying for Playground Tests
 
@@ -167,7 +184,10 @@ The end-to-end live loop is:
 10. Pay the winner back from the Hootpot Safe or pool.
 11. Record the payout tx hash to mark the receipt as paid back.
 
-This proves the core mechanism with real Circles transactions. The Gnosis Pay sync button can additionally ingest real card transaction metadata through SIWE without exposing access tokens to the browser.
+This proves the core mechanism with real Circles transactions. Gnosis Pay sync
+can additionally ingest real card transaction metadata through SIWE without
+exposing access tokens to the browser once `NEXT_PUBLIC_HOOTPOT_ENABLE_GNOSIS_PAY`
+is enabled and the partner domain is allowed.
 
 ## Contract Direction
 

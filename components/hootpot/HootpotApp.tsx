@@ -29,6 +29,7 @@ import {
   cashbackForAmount,
   DEFAULT_CHECKOUT_AMOUNT,
   formatAddress,
+  GNOSIS_PAY_ENABLED,
   GROUP_ADDRESS,
   GROUP_METRICS_URL,
   GROUP_MINT_HANDLER_ADDRESS,
@@ -644,6 +645,7 @@ export function HootpotApp() {
             : "Ready to enable open join.";
   const topUpTransferData = encodeHootpotTransferData(`hootpot:topup:${ROUND_ID}`);
   const normalizedTopUpAmount = normalizeAmount(topUpAmount);
+  const directCheckoutAmount = normalizeAmount(amount) ?? DEFAULT_CHECKOUT_AMOUNT;
   const topUpUrl =
     potConfigured && normalizedTopUpAmount
       ? buildGnosisCrcTransferUrl(POT_ADDRESS, normalizedTopUpAmount, topUpTransferData)
@@ -1927,6 +1929,17 @@ export function HootpotApp() {
                   <ReceiptText className="size-4" />
                   {isCreating ? "Creating..." : "Create Receipt"}
                 </Button>
+                <a
+                  href={`/pay/${selectedMerchant.id}?amount=${directCheckoutAmount}`}
+                  className={cn(
+                    "inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[#251d3f] bg-white px-4 text-sm font-black text-[#251d3f]",
+                    !isConfiguredAddress(selectedMerchant.address) &&
+                      "pointer-events-none opacity-50",
+                  )}
+                >
+                  Merchant Link
+                  <ExternalLink className="size-4" />
+                </a>
                 {activeTicket && isConfiguredAddress(activeTicket.merchantAddress) ? (
                   <span className="inline-flex h-11 items-center rounded-[8px] border border-[#251d3f] bg-[#d8f36a] px-4 text-sm font-black text-[#171428]">
                     Host payment ready
@@ -2188,36 +2201,61 @@ export function HootpotApp() {
           </Card>
         </section>
 
-        <section className="rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4">
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="flex items-center gap-2 text-xl font-black">
-                  <CreditCard className="size-5 text-[#0d7f5f]" />
-                  Gnosis Pay Receipts
-                </h2>
-                <Badge variant="outline" className="rounded-[6px]">
-                  SIWE sync
-                </Badge>
+        {GNOSIS_PAY_ENABLED ? (
+          <section className="rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="flex items-center gap-2 text-xl font-black">
+                    <CreditCard className="size-5 text-[#0d7f5f]" />
+                    Gnosis Pay Receipts
+                  </h2>
+                  <Badge variant="outline" className="rounded-[6px]">
+                    SIWE sync
+                  </Badge>
+                </div>
+                <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
+                  Sign once with the connected Safe owner to sync recent card
+                  purchases. Hootpot never stores a Gnosis Pay access token.
+                </p>
               </div>
-              <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
-                Sign once with the connected Safe owner to sync recent card purchases.
-                Hootpot never stores a Gnosis Pay access token.
-              </p>
+              <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                <Button
+                  type="button"
+                  disabled={!isConnected || !isMiniappHost || isSyncingGnosisPay}
+                  onClick={syncGnosisPayReceipts}
+                  className="h-11 rounded-[8px] bg-[#0d7f5f] px-4 text-white hover:bg-[#0b6b51]"
+                >
+                  <CreditCard className="size-4" />
+                  {isSyncingGnosisPay ? "Syncing..." : "Sync Receipts"}
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-              <Button
-                type="button"
-                disabled={!isConnected || !isMiniappHost || isSyncingGnosisPay}
-                onClick={syncGnosisPayReceipts}
-                className="h-11 rounded-[8px] bg-[#0d7f5f] px-4 text-white hover:bg-[#0b6b51]"
+          </section>
+        ) : (
+          <section className="rounded-[8px] border border-[#e9dfce] bg-[#fffdf8] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-black">
+                  <CreditCard className="size-5 text-[#746b80]" />
+                  Gnosis Pay planned
+                </h2>
+                <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[#746b80]">
+                  Card receipt sync is implemented behind a feature flag and
+                  waits for Gnosis Pay SIWE/domain approval. The live flow uses
+                  direct CRC merchant checkout.
+                </p>
+              </div>
+              <a
+                href="/pot"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#251d3f] bg-white px-3 text-sm font-black text-[#251d3f]"
               >
-                <CreditCard className="size-4" />
-                {isSyncingGnosisPay ? "Syncing..." : "Sync Receipts"}
-              </Button>
+                Public Pot
+                <ArrowRight className="size-4" />
+              </a>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {activeTicket ? (
           <section className="rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4">
@@ -2588,10 +2626,14 @@ export function HootpotApp() {
           />
           <InfoPanel
             title="Gnosis Pay Receipts"
-            body="Card receipts can enter Hootpot through the Gnosis Pay transaction API; webhooks are the production path."
+            body={
+              GNOSIS_PAY_ENABLED
+                ? "Card receipts can enter Hootpot through the Gnosis Pay transaction API; webhooks are the production path."
+                : "Gnosis Pay receipt sync is built, but hidden until SIWE/domain allowlisting is confirmed."
+            }
             action={
               <span className="text-sm font-black text-[#0d7f5f]">
-                SIWE + webhook
+                {GNOSIS_PAY_ENABLED ? "SIWE + webhook" : "allowlist pending"}
               </span>
             }
           />

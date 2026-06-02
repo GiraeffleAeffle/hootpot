@@ -10,6 +10,8 @@ export const ROUND_ID = "garage-cycle-02";
 export const DEFAULT_ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const DEFAULT_CHECKOUT_AMOUNT = "1";
 export const MAX_CASHBACK_CRC = 50;
+export const GNOSIS_PAY_ENABLED =
+  process.env.NEXT_PUBLIC_HOOTPOT_ENABLE_GNOSIS_PAY === "1";
 
 export const POT_ADDRESS =
   process.env.NEXT_PUBLIC_HOOTPOT_POT_ADDRESS ?? DEFAULT_ZERO_ADDRESS;
@@ -74,6 +76,12 @@ export const MERCHANTS: HootpotMerchant[] = [
     boost: "weekly top-up",
   },
 ];
+
+export function findConfiguredMerchant(
+  merchantId: string,
+): HootpotMerchant | null {
+  return MERCHANTS.find((merchant) => merchant.id === merchantId) ?? null;
+}
 
 export function isConfiguredAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address) && !/^0x0{40}$/i.test(address);
