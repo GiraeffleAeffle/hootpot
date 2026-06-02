@@ -31,6 +31,25 @@ function isHootpotUrl(value: string): boolean {
   }
 }
 
+function cameraBlockedByPolicy(): boolean {
+  type PolicyDocument = Document & {
+    permissionsPolicy?: { allowsFeature(feature: string): boolean };
+    featurePolicy?: { allowsFeature(feature: string): boolean };
+  };
+  const policyDocument = document as PolicyDocument;
+  try {
+    if (policyDocument.permissionsPolicy) {
+      return !policyDocument.permissionsPolicy.allowsFeature("camera");
+    }
+    if (policyDocument.featurePolicy) {
+      return !policyDocument.featurePolicy.allowsFeature("camera");
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export function ScanMerchantQr() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -38,6 +57,7 @@ export function ScanMerchantQr() {
   const [manualUrl, setManualUrl] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const standaloneScanUrl = "https://hootpot.vercel.app/scan";
 
   useEffect(() => {
     return () => {
@@ -50,6 +70,12 @@ export function ScanMerchantQr() {
 
   async function startScanner() {
     setMessage(null);
+    if (cameraBlockedByPolicy()) {
+      setMessage(
+        "Camera scanning is blocked by the host iframe permissions. Open the scanner outside the playground, or paste the checkout link.",
+      );
+      return;
+    }
     if (!window.BarcodeDetector) {
       setMessage("This browser does not expose QR scanning. Paste the QR link instead.");
       return;
@@ -140,6 +166,14 @@ export function ScanMerchantQr() {
             )}
             {isScanning ? "Scanning..." : "Start Camera"}
           </Button>
+          <a
+            href={standaloneScanUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[#251d3f] bg-white px-4 text-sm font-black text-[#251d3f]"
+          >
+            Open standalone scanner
+          </a>
         </section>
 
         <section className="rounded-[8px] border border-[#251d3f] bg-[#fffdf8] p-4">
