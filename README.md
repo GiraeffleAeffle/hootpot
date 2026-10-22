@@ -42,6 +42,12 @@ pnpm install
 pnpm dev
 ```
 
+The October 2026 dependency security refresh updates the pnpm lockfile against
+OSV Critical/High advisories. The security dependency PR records exact findings,
+upstream issues without a patched release, and before/after checks. Comparisons
+use Node 20 (matching the existing Node type generation and Next.js minimum);
+Node 20 is end-of-life, so select a supported runtime for new deployments.
+
 Open `http://localhost:3000`.
 
 Standalone browser mode shows a preview wallet state. End-to-end wallet injection is tested in the Circles playground after deploying to HTTPS:
